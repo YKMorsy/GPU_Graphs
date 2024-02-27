@@ -4,11 +4,12 @@
 #include <vector>
 #include <queue>
 #include <iostream>
+#include "../csr/csr.h"
 
 class cpuBFS
 {
     public:
-        cpuBFS(std::vector<int> col_idx, std::vector<int> row_offset, int source);
+        cpuBFS(csr graph, int source);
         std::vector<int> distance;
 
 };

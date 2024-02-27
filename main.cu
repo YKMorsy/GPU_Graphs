@@ -1,7 +1,8 @@
 #include "include/csr/csr.h"
 #include "include/cpu/cpuBFS.h"
+#include "include/gpu/gpuBFS.cuh"
 
-#include <cstdlib> // for std::stoi
+#include <cstdlib>
 
 int main(int argc, char* argv[]) 
 {
@@ -17,13 +18,15 @@ int main(int argc, char* argv[])
     std::vector<int> col_idx = graph.col_idx;
     std::vector<int> row_offset = graph.row_offset;
 
-    cpuBFS cpuBFS(col_idx, row_offset, source);
+    cpuBFS cpuBFS(graph, source);
 
-    // std::cout << "Distance vector:" << std::endl;
-    // for (int i = 0; i < cpuBFS.distance.size(); ++i) {
-    //     std::cout << cpuBFS.distance[i] << " | ";
-    // }
-    // std::cout << std::endl;
+    gpuBFS gpuBFS(graph, source);
+
+    std::cout << "Distance vector:" << std::endl;
+    for (int i = 0; i < gpuBFS.num_nodes; i++) {
+        std::cout << gpuBFS.host_distance[i] << " | ";
+    }
+    std::cout << std::endl;
 
     // std::cout << "Column indices:" << std::endl;
     // for (int i = 0; i < col_idx.size(); ++i) {
