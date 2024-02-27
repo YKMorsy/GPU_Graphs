@@ -17,7 +17,8 @@ class gpuBFS
         int *host_distance;
     private:
 
-        void init_distance(csr graph);
+        void init_distance();
+        void init_queue();
 
         int *host_queue;
         int *host_cur_queue_size;

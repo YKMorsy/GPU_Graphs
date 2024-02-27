@@ -12,38 +12,43 @@ void init_distance_kernel(int *device_distance, int size)
 }
 
 __global__
-void expand_contract_kernel(csr graph, int *device_queue, int *device_cur_queue_size)
+void expand_contract_kernel(csr graph, int num_nodes, int *device_queue, int *device_cur_queue_size)
 {
-    // // printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
-    // printf("hi %d\n", *device_cur_queue_size);
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    *device_cur_queue_size = *device_cur_queue_size - 1;
+    if (i < *device_cur_queue_size)
+    {
+        // get node from queue
+        int cur_node = device_queue[i];
+
+        //warp culling and history culling
+
+        // load row range (neighbor idx) - check if cur_node is part of queue       
+        int row_offset_start = graph.row_offset[cur_node];
+        int row_offset_end =  graph.row_offset[cur_node+1];
+
+        if (device_queue[cur_node] == 1)
+        {
+            *device_cur_queue_size = *device_cur_queue_size - 1;
+        }
+
+        // *device_cur_queue_size = *device_cur_queue_size - 1;
+    }
+    
 }
 
 __host__
-gpuBFS::gpuBFS(csr graph, int source)
+gpuBFS::gpuBFS(csr graph, int source) : num_nodes(graph.row_offset.size()-1)
 {
-    // initialize member variable
-    num_nodes = (graph.row_offset.size()-1);
-
     // initialize queue and sizes
-    host_queue = (int *)malloc(num_nodes * sizeof(int));
-    cudaMalloc(&device_queue, num_nodes * sizeof(int));
-
-    host_cur_queue_size = (int *)malloc(sizeof(int));
-    cudaMalloc(&device_cur_queue_size, sizeof(int));
-
-    *host_cur_queue_size = 0;
+    init_queue();
 
     // initialize distance with -1 on host
-    host_distance = (int *)malloc(num_nodes * sizeof(int));
-    init_distance(graph);
+    init_distance();
 
     // start with source (update distance and queue)
     host_distance[source] = 0;
     *host_cur_queue_size = *host_cur_queue_size + 1;
-
-    std::cout << "hi" << std::endl;
 
     // loop until frontier is empty
     while (*host_cur_queue_size > 0)
@@ -52,30 +57,39 @@ gpuBFS::gpuBFS(csr graph, int source)
         cudaMemcpy(device_queue, host_queue, num_nodes * sizeof(int), cudaMemcpyHostToDevice); // probably need to just copy new nodes, look into this
         cudaMemcpy(device_cur_queue_size, host_cur_queue_size, sizeof(int), cudaMemcpyHostToDevice);
 
-        // std::cout << "hi" << std::endl;
-
         // neighbor adding kernel
         dim3 block(1024, 1);
         dim3 grid((*host_cur_queue_size+block.x-1)/block.x, 1);
-        expand_contract_kernel<<<block, grid>>>(graph, device_queue, device_cur_queue_size);
-        cudaGetLastError();
-        cudaDeviceSynchronize();
+        expand_contract_kernel<<<block, grid>>>(graph, num_nodes, device_queue, device_cur_queue_size);
 
         // copy device queue to host
         cudaMemcpy(host_queue, device_queue, num_nodes * sizeof(int), cudaMemcpyDeviceToHost);
         cudaMemcpy(host_cur_queue_size, device_cur_queue_size, sizeof(int), cudaMemcpyDeviceToHost);
 
-        // std::cout << *host_cur_queue_size << std::endl;
-
-        // temp
-        // *host_cur_queue_size--;
+        // std::cout << grid.x << std::endl;
     }
+}
+
+__host__
+void gpuBFS::init_queue()
+{
+    // allocate host memory
+    host_queue = (int *)malloc(num_nodes * sizeof(int));
+    host_cur_queue_size = (int *)malloc(sizeof(int));
+    *host_cur_queue_size = 0;
+
+    // allocate device memory
+    cudaMalloc(&device_queue, num_nodes * sizeof(int));
+    cudaMalloc(&device_cur_queue_size, sizeof(int));
 }
 
 
 __host__
-void gpuBFS::init_distance(csr graph)
+void gpuBFS::init_distance()
 {
+    // allocate host memory
+    host_distance = (int *)malloc(num_nodes * sizeof(int));
+
     // allocate device memory
     cudaMalloc(&device_distance, num_nodes * sizeof(int));
 
