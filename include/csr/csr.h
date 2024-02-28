@@ -10,8 +10,13 @@ class csr
 {
     public:
         csr(const char* filename);
-        std::vector<int> col_idx;
-        std::vector<int> row_offset;
+        ~csr();
+        int *col_idx;
+        int *row_offset;
+        int num_nodes;
+        int num_edges;
+        // std::vector<int> col_idx;
+        // std::vector<int> row_offset;
 };
 
 #endif

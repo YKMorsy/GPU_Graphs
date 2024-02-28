@@ -10,21 +10,20 @@ class gpuBFS
 {
     public:
 
-        gpuBFS(csr graph, int source);
+        gpuBFS(csr &graph, int source);
         ~gpuBFS();
         
-        int num_nodes;
         int *host_distance;
     private:
 
-        void init_distance();
-        void init_queue();
+        void init_distance(csr &graph);
+        void init_queue(csr &graph);
 
         int *host_queue;
         int *host_cur_queue_size;
 
         int *device_distance;
-        int *device_queue;
+        int *device_in_queue;
         int *device_cur_queue_size;
 };
 

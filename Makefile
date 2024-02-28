@@ -20,23 +20,23 @@ all: $(EXEC)
 
 # Rule to build executable
 $(EXEC): $(OBJS)
-	$(NVCC) $(NVCCFLAGS) $(OBJS) -o $(EXEC)
+	@$(NVCC) $(NVCCFLAGS) $(OBJS) -o $(EXEC)
 
 # Rule to compile source files (.cpp)
 %.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to compile CUDA source files (.cu)
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	@$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 # Clean rule
 clean:
-	rm -f $(OBJS) $(EXEC)
+	@rm -f $(OBJS) $(EXEC)
 
 # Rule to run the program with input
 run: $(EXEC)
-	 ./$(EXEC) $(ARGS)
-	 rm -f $(OBJS) $(EXEC)
+	@./$(EXEC) $(ARGS)
+	@rm -f $(OBJS) $(EXEC)
 
 .PHONY: all clean run

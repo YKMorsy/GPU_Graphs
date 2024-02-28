@@ -9,7 +9,7 @@
 class cpuBFS
 {
     public:
-        cpuBFS(csr graph, int source);
+        cpuBFS(csr &graph, int source);
         std::vector<int> distance;
 
 };

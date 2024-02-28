@@ -15,30 +15,35 @@ int main(int argc, char* argv[])
     int source = std::stoi(argv[2]);
 
     csr graph(file);
-    std::vector<int> col_idx = graph.col_idx;
-    std::vector<int> row_offset = graph.row_offset;
 
-    cpuBFS cpuBFS(graph, source);
-
-    gpuBFS gpuBFS(graph, source);
-
-    std::cout << "Distance vector:" << std::endl;
-    for (int i = 0; i < gpuBFS.num_nodes; i++) {
-        std::cout << gpuBFS.host_distance[i] << " | ";
+    std::cout << "Column indices: " << graph.num_edges << std::endl;
+    for (int i = 0; i < graph.num_edges; i++) {
+        std::cout << graph.col_idx[i] << " | ";
     }
     std::cout << std::endl;
 
-    // std::cout << "Column indices:" << std::endl;
-    // for (int i = 0; i < col_idx.size(); ++i) {
-    //     std::cout << col_idx[i] << " | ";
-    // }
-    // std::cout << std::endl;
+    std::cout << "Row offset: " << graph.num_nodes << std::endl;
+    for (int i = 0; i < graph.num_nodes+1; i++) {
+        std::cout << graph.row_offset[i] << " | ";
+    }
+    std::cout << std::endl;
 
-    // std::cout << "Row offset:" << std::endl;
-    // for (int i = 0; i < row_offset.size(); ++i) {
-    //     std::cout << row_offset[i] << " | ";
-    // }
-    // std::cout << std::endl;
+    // std::cout << graph.num_nodes << std::endl;
+
+    cpuBFS cpuBFS(graph, source);
+
+    std::cout << "Distance vector: " << std::endl;
+    for (int i = 0; i < graph.num_nodes; i++) {
+        std::cout << cpuBFS.distance[i] << " | ";
+    }
+    std::cout << std::endl;
+
+    // std::cout << "HI\n";
+
+    // gpuBFS gpuBFS(graph, source);
+
+
+
 
     return 0;
 }

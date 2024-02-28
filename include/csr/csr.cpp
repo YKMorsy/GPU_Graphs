@@ -12,13 +12,16 @@ csr::csr(const char* filename)
     }
     
     // get number of nodes and edges
-    int num_nodes, num_edges, from, to;
+    int from, to;
     infile >> num_nodes;
     infile >> num_edges;
 
     // Create adjacency list
-    col_idx.reserve(num_edges);
-    row_offset.reserve(num_nodes+1);
+    // col_idx.reserve(num_edges);
+    // row_offset.reserve(num_nodes+1);
+    col_idx = (int *)malloc(num_edges * sizeof(int));
+    row_offset = (int *)malloc((num_nodes+1) * sizeof(int));
+
     std::vector<std::vector<int>> adjList(num_nodes+1);
     while (infile >> from >> to)
     {
@@ -33,21 +36,30 @@ csr::csr(const char* filename)
 
         if (cur_node.size() > 0)
         {
-            row_offset.push_back(offset_counter);
+            row_offset[i] = offset_counter;
+            // row_offset.push_back(offset_counter);
         }
         else
         {
-            row_offset.push_back(-1);
+            row_offset[i] = -1;
+            // row_offset.push_back(-1);
         }
 
         for (int j = 0; j < cur_node.size(); j++)
         {
-            col_idx.push_back(cur_node[j]);
+            // col_idx.push_back(cur_node[j]);
+            col_idx[offset_counter] = cur_node[j];
             offset_counter++;
         }
     }
 
     // Add final offset for the end
-    row_offset.push_back(offset_counter);
+    row_offset[num_nodes] = offset_counter;
 
+}
+
+csr::~csr()
+{
+    free(col_idx);
+    free(row_offset);
 }
