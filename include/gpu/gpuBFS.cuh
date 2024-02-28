@@ -18,6 +18,7 @@ class gpuBFS
 
         void init_distance(csr &graph);
         void init_queue(csr &graph);
+        void init_graph_for_device(csr &graph);
 
         int *host_queue;
         int *host_cur_queue_size;
@@ -25,6 +26,9 @@ class gpuBFS
         int *device_distance;
         int *device_in_queue;
         int *device_cur_queue_size;
+
+        int *device_col_idx;
+        int *device_row_offset;
 };
 
 #endif

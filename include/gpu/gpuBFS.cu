@@ -12,34 +12,35 @@ void init_distance_kernel(int *device_distance, int size)
 }
 
 __global__
-void expand_contract_kernel(csr &graph, int num_nodes, int *device_in_queue, int *device_cur_queue_size)
+void expand_contract_kernel(int *device_col_idx, int *device_row_offset, int num_nodes, int *device_in_queue, int *device_cur_queue_size)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < *device_cur_queue_size)
     {
         // get node from queue
-        // int cur_node = device_in_queue[i];
+        int cur_node = device_in_queue[i];
 
         //warp culling and history culling
+
+        printf("%d\n", cur_node);
         printf("%d\n", *device_cur_queue_size);
+
 
         // load row range (neighbor idx) - check if cur_node is part of queue       
-        // int row_offset_start = graph.row_offset[cur_node];
-        // int row_offset_end =  graph.row_offset[cur_node+1];
+        int row_offset_start = device_row_offset[cur_node];
+        int row_offset_end =  device_row_offset[cur_node+1];
 
-        // printf("%d and %d\n", row_offset_start, row_offset_end);
+        // only create outqueue if current node is not isolated
+        if (row_offset_start != -1)
+        {
+            // do stuff
+            printf("%d and %d\n", row_offset_start, row_offset_end);
+        }
 
-        // if (device_in_queue[cur_node] == 1)
-        // {
-            
+        // temp            
         *device_cur_queue_size = *device_cur_queue_size - 1;
-
         printf("%d\n", *device_cur_queue_size);
-
-        // }
-
-        // *device_cur_queue_size = *device_cur_queue_size - 1;
     }
     
 }
@@ -53,18 +54,21 @@ gpuBFS::gpuBFS(csr &graph, int source)
     // initialize distance with -1 on host
     init_distance(graph);
 
+    // initialize device graph variables
+    init_graph_for_device(graph);
+
     // start with source (update distance and queue)
     host_distance[source] = 0;
     *host_cur_queue_size = *host_cur_queue_size + 1;
 
     host_queue[0] = source;
 
-    printf("%d\n", host_queue[0]);
+    // printf("%d\n", host_queue[0]);
 
-    int row_offset_start = graph.row_offset[source];
-    int row_offset_end =  graph.row_offset[source+1];
+    // int row_offset_start = graph.row_offset[source];
+    // int row_offset_end =  graph.row_offset[source+1];
 
-    printf("%d and %d\n", row_offset_start, row_offset_end);
+    // printf("%d and %d\n", row_offset_start, row_offset_end);
 
     // printf("%d\n", host_distance[0]);
     // printf("%d\n", host_queue[0]);
@@ -76,10 +80,16 @@ gpuBFS::gpuBFS(csr &graph, int source)
         cudaMemcpy(device_in_queue, host_queue, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice); // probably need to just copy new nodes, look into this
         cudaMemcpy(device_cur_queue_size, host_cur_queue_size, sizeof(int), cudaMemcpyHostToDevice);
 
+        // int row_offset_start = graph.row_offset[source];
+        // int row_offset_end =  graph.row_offset[source+1];
+
+        // printf("%d and %d\n", row_offset_start, row_offset_end);
+
         // neighbor adding kernel
         dim3 block(1024, 1);
         dim3 grid((*host_cur_queue_size+block.x-1)/block.x, 1);
-        expand_contract_kernel<<<block, grid>>>(graph, graph.num_nodes, device_in_queue, device_cur_queue_size);
+        expand_contract_kernel<<<block, grid>>>(device_col_idx, device_row_offset, graph.num_nodes, device_in_queue, device_cur_queue_size);
+        cudaDeviceSynchronize();
 
         // copy device queue to host
         cudaMemcpy(host_queue, device_in_queue, graph.num_nodes * sizeof(int), cudaMemcpyDeviceToHost);
@@ -88,6 +98,16 @@ gpuBFS::gpuBFS(csr &graph, int source)
         // std::cout << grid.x << std::endl;
         // *host_cur_queue_size = *host_cur_queue_size - 1;
     }
+}
+
+__host__
+void gpuBFS::init_graph_for_device(csr &graph)
+{
+    cudaMalloc(&device_col_idx, graph.num_edges * sizeof(int));
+    cudaMalloc(&device_row_offset, (graph.num_nodes+1) * sizeof(int));
+
+    cudaMemcpy(device_col_idx, graph.col_idx, graph.num_edges * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_row_offset, graph.row_offset, (graph.num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice);
 }
 
 __host__

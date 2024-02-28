@@ -30,6 +30,7 @@ int main(int argc, char* argv[])
 
     // std::cout << graph.num_nodes << std::endl;
 
+    std::cout << "\nRunning CPU BFS\n";
     cpuBFS cpuBFS(graph, source);
 
     std::cout << "Distance vector: " << std::endl;
@@ -38,12 +39,8 @@ int main(int argc, char* argv[])
     }
     std::cout << std::endl;
 
-    // std::cout << "HI\n";
-
-    // gpuBFS gpuBFS(graph, source);
-
-
-
+    std::cout << "\nRunning GPU BFS\n";
+    gpuBFS gpuBFS(graph, source);
 
     return 0;
 }
