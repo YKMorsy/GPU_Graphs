@@ -7,7 +7,7 @@ csr::csr(const char* filename)
 
     if (!infile.is_open())
     {
-        std::cerr << "Error: Unable to open file" << filename << "\n";
+        std::cerr << "Error: Unable to open file " << filename << "\n";
         return;
     }
     

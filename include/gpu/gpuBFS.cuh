@@ -25,7 +25,8 @@ class gpuBFS
 
         int *device_distance;
         int *device_in_queue;
-        int *device_cur_queue_size;
+        int *device_out_queue_size;
+        int *device_out_queue;
 
         int *device_col_idx;
         int *device_row_offset;
