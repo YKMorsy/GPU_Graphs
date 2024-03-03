@@ -19,8 +19,6 @@ void init_distance_kernel(int *device_distance, int size)
 
  __device__ prescan_result block_prefix_sum(const int val)
 {
-	// Heavily inspired/copied from sample "shfl_scan" provided by NVIDIA.
-	// Block-wide prefix sum using shfl intrinsic.
     const int block_size = 128;
     const int warp_size = 32;
     const int warps = block_size/warp_size;
@@ -75,9 +73,7 @@ void init_distance_kernel(int *device_distance, int size)
 	}
 
 	prescan_result result;
-	// Subtract value given by thread to get exclusive prefix sum.
 	result.offset = value - val;
-	// Get total sum.
 	result.total = sums[warps-1];
 	return result; 
 }
