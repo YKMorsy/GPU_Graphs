@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <queue>
 #include <iostream>
+#include <time.h>
 #include "../csr/csr.h"
 
 class gpuBFS
@@ -14,6 +15,7 @@ class gpuBFS
         ~gpuBFS();
         
         int *host_distance;
+        float exec_time;
     private:
 
         void init_distance(csr &graph);

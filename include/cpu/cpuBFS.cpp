@@ -1,13 +1,22 @@
 #include "cpuBFS.h"
 
-cpuBFS::cpuBFS(csr &graph, int source) : distance(graph.num_nodes, -1)
+cpuBFS::cpuBFS(csr &graph, int source)
 {    
-    int cur_level = 0;
+    clock_t cpu_start, cpu_end;
+    cpu_start = clock();
     std::queue<int> frontier;
+
+    distance.reserve(graph.num_nodes);
+    for (int i = 0; i < graph.num_nodes; i++)
+    {
+        distance[i] = -1;
+    }
+
     
     // add source to node
     frontier.push(source);
-    distance[source] = cur_level;
+    distance[source] = 0;
+
 
     // loop until node queue is empty
     while(!frontier.empty())
@@ -20,45 +29,28 @@ cpuBFS::cpuBFS(csr &graph, int source) : distance(graph.num_nodes, -1)
         
         // get neighbors of current node and add to queue
         int row_offset_start = graph.row_offset[cur_node];
-        
-        // std::cout << "Current Node: " << cur_node << std::endl;
+        int row_offset_end = graph.row_offset[cur_node+1];
 
-        if (row_offset_start != -1)
+        for (int i = row_offset_start; i < row_offset_end; i++)
         {
-            // find next row offset that isn't negative 1
-            int row_offset_end = -1;
-            for (int i = cur_node+1; i < graph.num_nodes + 1; i++)
+            int neighbor = graph.col_idx[i];
+
+            // std::cout << "Neighbor Node: " << neighbor << std::endl;
+
+            // check if node already visited
+            if (distance[neighbor] == -1)
             {
-                // std::cout << graph.row_offset[i] << std::endl;
-                if (graph.row_offset[i] != -1)
-                {
-                    row_offset_end = graph.row_offset[i];
-                    break;
-                }
-            }
-             
-
-            // std::cout << "Current Node to Check: " << cur_node << std::endl;
-            // std::cout << "Row Start: " << row_offset_start << std::endl;
-            // std::cout << "Row End: " << row_offset_end << std::endl;
-
-            // std::cout << row_offset_start << " and " << row_offset_end << std::endl;
-            for (int i = row_offset_start; i < row_offset_end; i++)
-            {
-                int neighbor = graph.col_idx[i];
-
-                // std::cout << "Neighbor Node: " << neighbor << std::endl;
-
-                // check if node already visited
-                if (distance[neighbor] == -1)
-                {
-                    frontier.push(neighbor);
-                    // update level of added neighbor nodes
-                    distance[neighbor] = distance[cur_node] + 1;
-                }
+                frontier.push(neighbor);
+                // update level of added neighbor nodes
+                distance[neighbor] = distance[cur_node] + 1;
             }
         }
+
     }
+
+    cpu_end = clock();
+
+    exec_time = (((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC) * 1000;
 
         
 }

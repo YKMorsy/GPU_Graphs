@@ -56,6 +56,14 @@ csr::csr(const char* filename)
     // Add final offset for the end
     row_offset[num_nodes] = offset_counter;
 
+    // change -1's to next offset
+    for (int i = num_nodes; i >= 0; i--) {
+        if (row_offset[i] == -1)
+        {
+            row_offset[i] = row_offset[i+1];
+        }
+    }
+
 }
 
 csr::~csr()

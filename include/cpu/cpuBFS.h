@@ -4,6 +4,7 @@
 #include <vector>
 #include <queue>
 #include <iostream>
+#include <time.h>
 #include "../csr/csr.h"
 
 class cpuBFS
@@ -11,6 +12,7 @@ class cpuBFS
     public:
         cpuBFS(csr &graph, int source);
         std::vector<int> distance;
+        float exec_time;
 
 };
 
