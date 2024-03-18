@@ -440,7 +440,7 @@ void gpuBFS::init_distance(csr &graph)
     // copy memory from host to device
     cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
 
-    // run kernel to inialize kernel
+    // run kernel to inialize distance
     dim3 block(BLOCK_SIZE, 1);
     dim3 grid((graph.num_nodes+block.x-1)/block.x, 1);
     init_distance_kernel<<<grid, block>>>(device_distance, graph.num_nodes);

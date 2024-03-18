@@ -722,7 +722,7 @@ void gpuBFS::init_distance(csr &graph)
         .memcpy(device_distance, host_distance, graph.num_nodes * sizeof(int))
         .wait();
 
-    // run kernel to inialize kernel
+    // run kernel to inialize distance
     sycl::range<3> block(1, 1, BLOCK_SIZE);
     sycl::range<3> grid(1, 1, (graph.num_nodes + block[2] - 1) / block[2]);
     /*
@@ -741,6 +741,8 @@ void gpuBFS::init_distance(csr &graph)
                                                   item_ct1);
                          });
     });
+
+    dpct::get_in_order_queue().wait();
 
     // copy back
     dpct::get_in_order_queue()
