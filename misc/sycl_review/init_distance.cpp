@@ -1,0 +1,45 @@
+#include <iostream>
+#include <CL/sycl.hpp>
+
+// work item = thread
+// work group = block
+// nd range = grid
+
+int main(int argc, char *argv[])
+{
+    // define and select device for queue
+    queue gpuQueue{gpu_selector{}}; 
+
+    int size = 10000;
+    int *host_distance = (int *)malloc(size * sizeof(int));
+    // int *host_distance = sycl::malloc_host<int>(size, gpuQueue);
+
+    int *device_distance = sycl::malloc_device<int>(size, gpuQueue);
+
+    int max_group_size = gpuQueue.get_info<device::detail::max_work_group_size>();
+
+    std::cout << "Max group size: " << max_group_size << "\n";
+   
+    // handler
+    gpuQueue.submit
+    (
+        [&] (cl::sycl::handler& cgh)
+        {
+            cgh.parallel_for
+            (
+                cl::sycl::nd_range<1>(size, max_group_size),
+                [=] (nd_item<1> item)
+                {
+                    int i = item.get_global_id(0);
+                    device_distance[i] = 2;
+                }
+            )
+        
+        }
+    ).wait();
+
+    // copy back to host
+    gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
+
+    std::cout << host_distance[5] << " " << host_distance[size-1]; << "\n";
+}

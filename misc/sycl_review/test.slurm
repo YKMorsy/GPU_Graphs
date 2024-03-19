@@ -7,5 +7,5 @@
 
 module load intel-compilers/2024.0.0
 
-dpcpp -o hello_world hello_world.cpp
-./hello_world
+dpcpp -o init_distance init_distance.cpp
+./init_distance
