@@ -8,15 +8,15 @@
 int main(int argc, char *argv[])
 {
     // define and select device for queue
-    queue gpuQueue{gpu_selector{}}; 
+    cl::sycl::queue gpuQueue{gpu_selector{}}; 
 
     int size = 10000;
     int *host_distance = (int *)malloc(size * sizeof(int));
     // int *host_distance = sycl::malloc_host<int>(size, gpuQueue);
 
-    int *device_distance = sycl::malloc_device<int>(size, gpuQueue);
+    int *device_distance = cl::sycl::malloc_device<int>(size, gpuQueue);
 
-    int max_group_size = gpuQueue.get_info<device::detail::max_work_group_size>();
+    int max_group_size = gpuQueue.get_info<cl::sycl::info::device::max_work_group_size>();
 
     std::cout << "Max group size: " << max_group_size << "\n";
    
