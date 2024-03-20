@@ -23,7 +23,7 @@ int main() {
     // Enqueue kernel
     gpuQueue.submit([&](cl::sycl::handler &cgh) 
     {
-        int *distance_ptr = device_distance;
+        // int *distance_ptr = device_distance;
 
         cgh.parallel_for
         (
@@ -33,7 +33,7 @@ int main() {
                 int i = item.get_global_id(0);
                 if (i < size)
                 {
-                    distance_ptr[i] = 2;
+                    device_distance[i] = 2;
                 }
             }
         );
@@ -46,6 +46,7 @@ int main() {
 
     // Free memory
     free(host_distance);
+    cl::sycl::free(device_distance, gpuQueue);
     
     return 0;
 }
