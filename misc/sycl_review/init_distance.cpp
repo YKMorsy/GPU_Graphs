@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 
     int *device_distance = cl::sycl::malloc_device<int>(size, gpuQueue);
 
-    int max_group_size = gpuQueue.get_info<cl::sycl::info::device::max_work_group_size>();
+    int max_group_size = gpuQueue.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
 
     std::cout << "Max group size: " << max_group_size << "\n";
    
