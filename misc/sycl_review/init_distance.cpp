@@ -8,7 +8,7 @@
 int main(int argc, char *argv[])
 {
     // define and select device for queue
-    cl::sycl::queue gpuQueue{gpu_selector{}}; 
+    cl::sycl::queue gpuQueue{cl::sycl::gpu_selector_v}; 
 
     int size = 10000;
     int *host_distance = (int *)malloc(size * sizeof(int));
