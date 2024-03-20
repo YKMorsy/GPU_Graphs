@@ -3,7 +3,7 @@
 
 int main() {
     // Define and select device for queue
-    cl::sycl::queue gpuQueue{ cl::sycl::gpu_selector{} };
+    cl::sycl::queue gpuQueue{ cl::sycl::gpu_selector_v };
 
     // Define size
     const int size = 10000;
