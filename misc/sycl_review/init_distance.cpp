@@ -18,7 +18,7 @@ int main() {
     std::cout << "Max group size: " << max_group_size << "\n";
 
     // Create nd_range with work-group size equal to max_group_size
-    cl::sycl::nd_range<1> range(cl::sycl::range<1>(size), cl::sycl::range<1>(max_group_size));
+    // cl::sycl::nd_range<1> range(cl::sycl::range<1>(size), cl::sycl::range<1>(max_group_size));
 
     // Enqueue kernel
     gpuQueue.submit([&](cl::sycl::handler &cgh) 
@@ -27,7 +27,8 @@ int main() {
 
         cgh.parallel_for
         (
-            range, [=](cl::sycl::nd_item<1> item) 
+            cl::sycl::nd_range<1>(size, max_group_size),
+            [=] (cl::sycl::nd_item<1> item) 
             {
                 int i = item.get_global_id(0);
                 if (i < size)
