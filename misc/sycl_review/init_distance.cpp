@@ -20,26 +20,29 @@ int main(int argc, char *argv[])
 
     std::cout << "Max group size: " << max_group_size << "\n";
    
-    // // handler
-    // gpuQueue.submit
-    // (
-    //     [&] (cl::sycl::handler& cgh)
-    //     {
-    //         cgh.parallel_for
-    //         (
-    //             cl::sycl::nd_range<1>(size, max_group_size),
-    //             [=] (cl::sycl::nd_item<1> item)
-    //             {
-    //                 int i = item.get_global_id(0);
-    //                 device_distance[i] = 2;
-    //             }
-    //         );
+    // handler
+    gpuQueue.submit
+    (
+        [&] (cl::sycl::handler& cgh)
+        {
+            cgh.parallel_for
+            (
+                cl::sycl::nd_range<1>(size, max_group_size),
+                [=] (cl::sycl::nd_item<1> item)
+                {
+                    int i = item.get_global_id(0);
+                    if (i < size)
+                    {
+                        device_distance[i] = 2;
+                    }
+                }
+            );
         
-    //     }
-    // ).wait();
+        }
+    ).wait();
 
-    // // copy back to host
-    // gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
+    // copy back to host
+    gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
 
-    // std::cout << host_distance[5] << " " << host_distance[size-1] << "\n";
+    std::cout << host_distance[5] << " " << host_distance[size-1] << "\n";
 }
