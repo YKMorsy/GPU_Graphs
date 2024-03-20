@@ -28,12 +28,12 @@ int main(int argc, char *argv[])
             cgh.parallel_for
             (
                 cl::sycl::nd_range<1>(size, max_group_size),
-                [=] (nd_item<1> item)
+                [=] (cl::sycl::nd_item<1> item)
                 {
                     int i = item.get_global_id(0);
                     device_distance[i] = 2;
                 }
-            )
+            );
         
         }
     ).wait();
@@ -41,5 +41,5 @@ int main(int argc, char *argv[])
     // copy back to host
     gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
 
-    std::cout << host_distance[5] << " " << host_distance[size-1]; << "\n";
+    std::cout << host_distance[5] << " " << host_distance[size-1] << "\n";
 }
