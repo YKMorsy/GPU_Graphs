@@ -21,14 +21,21 @@ int main() {
     cl::sycl::nd_range<1> range(cl::sycl::range<1>(size), cl::sycl::range<1>(max_group_size));
 
     // Enqueue kernel
-    gpuQueue.submit([&](cl::sycl::handler &cgh) {
-        auto distance_ptr = device_distance.get_access<cl::sycl::access::mode::write>(cgh);
+    gpuQueue.submit([&](cl::sycl::handler &cgh) 
+    {
+        int *distance_ptr = device_distance;
 
-        cgh.parallel_for(range, [=](cl::sycl::nd_item<1> item) {
-            int i = item.get_global_id(0);
-            if (i < size)
-                distance_ptr[i] = 2;
-        });
+        cgh.parallel_for
+        (
+            range, [=](cl::sycl::nd_item<1> item) 
+            {
+                int i = item.get_global_id(0);
+                if (i < size)
+                {
+                    distance_ptr[i] = 2;
+                }
+            }
+        );
     }).wait();
 
     // Copy back to host
