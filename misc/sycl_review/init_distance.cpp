@@ -20,8 +20,9 @@ int main(int argc, char *argv[]) {
     // handler
     gpuQueue.submit([&](cl::sycl::handler &cgh) {
         cgh.parallel_for(
-            cl::sycl::nd_range<1>(cl::sycl::range<1>(size), cl::sycl::range<1>(group_size)),
-            [=](cl::sycl::nd_item<1> item) {
+            cl::sycl::range<1>(size),
+            cl::sycl::id<1>(group_size),
+            [=](cl::sycl::item<1> item) {
                 int i = item.get_global_id(0);
                 if (i < size)
                     device_distance[i] = 2;
