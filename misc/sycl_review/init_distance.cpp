@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         {
             cgh.parallel_for
             (
-                cl::sycl::nd_range<1>(size, max_group_size),
+                cl::sycl::nd_range<1>(cl::sycl::range<1>(size), cl::sycl::range<1>(group_size)),
                 [=] (cl::sycl::nd_item<1> item)
                 {
                     int i = item.get_global_id(0);
