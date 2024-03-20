@@ -1,12 +1,15 @@
 #include <iostream>
 #include <CL/sycl.hpp>
 
-int main(int argc, char *argv[]) {
-    // define and select device for queue
+int main() {
+    // Define and select device for queue
     cl::sycl::queue gpuQueue{ cl::sycl::gpu_selector{} };
 
-    int size = 10000;
-    int *host_distance = (int *)malloc(size * sizeof(int));
+    // Define size
+    const int size = 10000;
+
+    // Allocate memory on host and device
+    int *host_distance = static_cast<int*>(malloc(size * sizeof(int)));
     int *device_distance = cl::sycl::malloc_device<int>(size, gpuQueue);
 
     // Query max work group size
@@ -14,26 +17,27 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Max group size: " << max_group_size << "\n";
 
-    // Determine appropriate work group size
-    int group_size = std::min(max_group_size, size);
+    // Create nd_range with work-group size equal to max_group_size
+    cl::sycl::nd_range<1> range(cl::sycl::range<1>(size), cl::sycl::range<1>(max_group_size));
 
-    // handler
+    // Enqueue kernel
     gpuQueue.submit([&](cl::sycl::handler &cgh) {
-        cgh.parallel_for(
-            cl::sycl::range<1>(size),
-            cl::sycl::id<1>(group_size),
-            [=](cl::sycl::item<1> item) {
-                int i = item.get_global_id(0);
-                if (i < size)
-                    device_distance[i] = 2;
-            });
+        auto distance_ptr = device_distance.get_access<cl::sycl::access::mode::write>(cgh);
+
+        cgh.parallel_for(range, [=](cl::sycl::nd_item<1> item) {
+            int i = item.get_global_id(0);
+            if (i < size)
+                distance_ptr[i] = 2;
+        });
     }).wait();
 
-    // copy back to host
+    // Copy back to host
     gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
 
     std::cout << host_distance[5] << " " << host_distance[size - 1] << "\n";
 
+    // Free memory
     free(host_distance);
+    
     return 0;
 }
