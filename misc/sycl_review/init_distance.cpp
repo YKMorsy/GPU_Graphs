@@ -14,7 +14,7 @@ int main() {
 
     // Query max work group size
     int max_group_size = gpuQueue.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
-
+    int num_blocks = (size + max_group_size - 1) / max_group_size;
     std::cout << "Max group size: " << max_group_size << "\n";
 
     // Create nd_range with work-group size equal to max_group_size
@@ -27,7 +27,7 @@ int main() {
 
         cgh.parallel_for
         (
-            cl::sycl::nd_range<1>(size, max_group_size),
+            cl::sycl::nd_range<1>(num_blocks*max_group_size, max_group_size),
             [=] (cl::sycl::nd_item<1> item) 
             {
                 int i = item.get_global_id(0);
