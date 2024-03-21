@@ -18,6 +18,8 @@ class syclBFS
 
         cl::sycl::queue gpuQueue{ cl::sycl::gpu_selector_v };
 
+        int graph_num_nodes;
+
         void init_distance(csr &graph);
         void init_queue(csr &graph);
         void init_graph_for_device(csr &graph);

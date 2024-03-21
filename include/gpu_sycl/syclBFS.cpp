@@ -3,6 +3,8 @@
 
 syclBFS::syclBFS(csr &graph, int source)
 {
+    graph_num_nodes = graph.num_nodes;
+
     // initialize queue and sizes
     init_queue(graph);
 
@@ -60,7 +62,7 @@ void syclBFS::init_distance(csr &graph)
             [=] (cl::sycl::nd_item<1> item) 
             {
                 int i = item.get_global_id(0);
-                if (i < graph.num_nodes)
+                if (i < graph_num_nodes)
                 {
                     distance_ptr[i] = -1;
                 }
