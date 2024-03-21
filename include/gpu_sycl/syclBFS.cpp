@@ -67,10 +67,10 @@ void syclBFS::init_distance(csr &graph)
     }).wait();
 
     // Copy back to host
-    gpuQueue.memcpy(host_distance, device_distance, size * sizeof(int)).wait();
+    gpuQueue.memcpy(host_distance, device_distance, graph.num_nodes * sizeof(int)).wait();
 }
 
-void gpuBFS::init_graph_for_device(csr &graph)
+void syclBFS::init_graph_for_device(csr &graph)
 {
     device_col_idx = cl::sycl::malloc_device<int>(graph.num_edges, gpuQueue);
     device_row_offset = cl::sycl::malloc_device<int>((graph.num_nodes+1), gpuQueue);
@@ -86,7 +86,6 @@ syclBFS::~syclBFS()
 
     cl::sycl::free(device_distance, gpuQueue);
     cl::sycl::free(device_in_queue, gpuQueue);
-    cl::sycl::free(device_out_queue_size, gpuQueue);
     cl::sycl::free(device_out_queue, gpuQueue);
     cl::sycl::free(device_col_idx, gpuQueue);
     cl::sycl::free(device_row_offset, gpuQueue);
