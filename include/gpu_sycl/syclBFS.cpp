@@ -33,7 +33,7 @@ void syclBFS::init_queue(csr &graph)
 {
     // allocate host memory
     host_queue = (int *)malloc(graph.num_nodes * sizeof(int));
-    host_cur_queue_size = (int *)malloc(sizeof(int));
+    host_cur_queue_size = 0;
     host_cur_queue_size = 0;
 
     // allocate device memory
@@ -48,7 +48,7 @@ void syclBFS::init_distance(csr &graph)
     device_distance = cl::sycl::malloc_device<int>(graph.num_nodes, gpuQueue);
 
     int max_group_size = gpuQueue.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
-    int num_blocks = (size + max_group_size - 1) / max_group_size;
+    int num_blocks = (graph.num_nodes + max_group_size - 1) / max_group_size;
 
     gpuQueue.submit([&](cl::sycl::handler &cgh) 
     {
@@ -83,12 +83,11 @@ syclBFS::~syclBFS()
 {
     free(host_distance);
     free(host_queue);
-    free(host_cur_queue_size);
 
-    cl::sycl::free(device_distance);
-    cl::sycl::free(device_in_queue);
-    cl::sycl::free(device_out_queue_size);
-    cl::sycl::free(device_out_queue);
-    cl::sycl::free(device_col_idx);
-    cl::sycl::free(device_row_offset);
+    cl::sycl::free(device_distance, gpuQueue);
+    cl::sycl::free(device_in_queue, gpuQueue);
+    cl::sycl::free(device_out_queue_size, gpuQueue);
+    cl::sycl::free(device_out_queue, gpuQueue);
+    cl::sycl::free(device_col_idx, gpuQueue);
+    cl::sycl::free(device_row_offset, gpuQueue);
 }

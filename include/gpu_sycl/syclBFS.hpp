@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <CL/sycl.hpp>
+#include "../csr/csr.h"
 
 class syclBFS
 {
