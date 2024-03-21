@@ -1,6 +1,5 @@
 #include "syclBFS.hpp"
 
-
 syclBFS::syclBFS(csr &graph, int source)
 {
     graph_num_nodes = graph.num_nodes;

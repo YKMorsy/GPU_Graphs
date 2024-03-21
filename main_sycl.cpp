@@ -1,6 +1,6 @@
 #include "include/csr/csr.h"
 #include "include/cpu/cpuBFS.h"
-#include "include/gpu_sycl/syclBFS.cpp"
+#include "include/gpu_sycl/syclBFS.h"
 
 int main(int argc, char* argv[]) 
 {
