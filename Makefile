@@ -4,7 +4,7 @@ NVCC = nvcc
 DPCPP = dpcpp
 
 # Source files
-SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu_sycl/gpuBFS.cpp main_sycl.cpp
+SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu_sycl/syclBFS.cpp main_sycl.cpp
 
 # Object files (substitute .cpp and .cu with .o)
 OBJS = $(filter %.o, $(SRCS:.cpp=.o))

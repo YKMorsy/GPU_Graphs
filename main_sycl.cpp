@@ -1,3 +1,5 @@
+#include "include/csr/csr.h"
+#include "include/cpu/cpuBFS.h"
 #include "include/gpu_sycl/syclBFS.cpp"
 
 int main(int argc, char* argv[]) 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=sycl_demo      
+#SBATCH --job-name=sycl_BFS      
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:pvc:1
 #SBATCH --partition=pvc
