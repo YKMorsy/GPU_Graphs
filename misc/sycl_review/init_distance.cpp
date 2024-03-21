@@ -20,7 +20,6 @@ int main() {
     // Create nd_range with work-group size equal to max_group_size
     // cl::sycl::nd_range<1> range(cl::sycl::range<1>(size), cl::sycl::range<1>(max_group_size));
 
-    // Enqueue kernel
     gpuQueue.submit([&](cl::sycl::handler &cgh) 
     {
         // int *distance_ptr = device_distance;
