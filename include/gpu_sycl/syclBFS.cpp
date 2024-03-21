@@ -52,6 +52,8 @@ void syclBFS::init_distance(csr &graph)
 
     gpuQueue.submit([&](cl::sycl::handler &cgh) 
     {
+        int *distance_ptr = device_distance;
+
         cgh.parallel_for
         (
             cl::sycl::nd_range<1>(num_blocks*max_group_size, max_group_size),
@@ -60,7 +62,7 @@ void syclBFS::init_distance(csr &graph)
                 int i = item.get_global_id(0);
                 if (i < graph.num_nodes)
                 {
-                    device_distance[i] = -1;
+                    distance_ptr[i] = -1;
                 }
             }
         );
