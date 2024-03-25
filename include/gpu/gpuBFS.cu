@@ -166,62 +166,6 @@ void init_distance_kernel(int *device_distance, int size)
 	}
 }
 
- __device__ void fine_gather(const int* const column_index, int* const distance,
-                             const int iteration, int * const out_queue, 
-                             int* const out_queue_count,int r, int r_end)
-{
-	prescan_result rank = block_prefix_sum(r_end-r);
-
-	__shared__ int comm[BLOCK_SIZE];
-	int cta_progress = 0;
-
-	while ((rank.total - cta_progress) > 0)
-	{
-		// Pack shared array with neighbors from adjacency lists.
-		while((rank.offset < cta_progress + BLOCK_SIZE) && (r < r_end))
-		{
-			comm[rank.offset - cta_progress] = r;
-			rank.offset++;
-			r++;
-		}
-		__syncthreads();
-		int neighbor;
-		int valid = 0;
-		if (threadIdx.x < (rank.total - cta_progress))
-		{
-			neighbor = column_index[comm[threadIdx.x]];
-			// Look up status
-            
-			// is_valid = status_lookup(distance,bitmask_surf, neighbor);
-            if ((distance[neighbor] == -1))
-            {
-                valid = 1;
-                // Update label.
-                distance[neighbor] = iteration + 1;
-            }
-		}
-		__syncthreads();
-		// Obtain offset in queue by computing prefix sum.
-		const prescan_result prescan = block_prefix_sum(valid);
-		volatile __shared__ int base_offset[1];
-		// Obtain base enqueue offset
-		if(threadIdx.x == 0)
-		{
-			base_offset[0] = atomicAdd(out_queue_count,prescan.total);
-		}
-		__syncthreads();
-		const int queue_index = base_offset[0] + prescan.offset;
-		// Write to queue
-		if (valid == 1)
-		{
-			out_queue[queue_index] = neighbor;
-		}
-
-		cta_progress += BLOCK_SIZE;
-		__syncthreads();
-	}
-}
-
 __device__ void fine_gather(int *device_col_idx, int row_offset_start, 
                             int row_offset_end, int *device_distance, 
                             int iteration, int *device_out_queue, int *device_out_queue_size, const int node)
@@ -333,14 +277,13 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
         fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
         // fine_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_start : row_offset_end);
 
+        // iterate th_id to make sure entire queue is processed
         th_id += gridDim.x*blockDim.x;
         
     }
     // sync threads in block then perform
     // returns 1 if any thread meets condition
     while(__syncthreads_or(th_id < device_in_queue_size)); 
-    
-    
 }
 
 __host__

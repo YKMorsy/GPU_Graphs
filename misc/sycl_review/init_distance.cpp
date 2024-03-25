@@ -12,6 +12,10 @@ int main() {
     int *host_distance = static_cast<int*>(malloc(size * sizeof(int)));
     int *device_distance = cl::sycl::malloc_device<int>(size, gpuQueue);
 
+    std::cout << "Local Memory Size: "
+        << gpuQueue.get_device().get_info<cl::sycl::info::device::local_mem_size>()
+        << std::endl;
+
     // Query max work group size
     int max_group_size = gpuQueue.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int num_blocks = (size + max_group_size - 1) / max_group_size;

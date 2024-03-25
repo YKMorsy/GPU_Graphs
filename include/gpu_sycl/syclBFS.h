@@ -18,6 +18,8 @@ class syclBFS
 
         cl::sycl::queue gpuQueue{ cl::sycl::gpu_selector_v };
 
+        int max_group_size = gpuQueue.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+
         int graph_num_nodes;
         int graph_num_edges;
 
