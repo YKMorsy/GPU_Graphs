@@ -5,6 +5,12 @@
 #include <CL/sycl.hpp>
 #include "../csr/csr.h"
 
+struct prescan_result
+{
+    int offset;
+    int total;
+};
+
 class syclBFS
 {
     public:
@@ -22,6 +28,20 @@ class syclBFS
 
         int graph_num_nodes;
         int graph_num_edges;
+
+        void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
+                                    int num_nodes, int *device_in_queue, 
+                                    int device_in_queue_size, int *device_out_queue_size, 
+                                    int *device_distance, int iteration, int *device_out_queue,
+                                    cl::sycl::nd_item<1> &item, int *comm, int *base_offset);
+
+        void block_gather(int* column_index, int* distance, 
+                            int iteration, int * out_queue, 
+                            int* out_queue_count, int r, int r_end, 
+                            cl::sycl::nd_item<1> &item, int *comm,
+                            int *base_offset);
+
+        prescan_result block_prefix_sum(int val);
 
         void init_distance(csr &graph);
         void init_queue(csr &graph);

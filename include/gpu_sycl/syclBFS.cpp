@@ -50,7 +50,9 @@ syclBFS::syclBFS(csr &graph, int source)
             int *device_out_queue_c = device_out_queue;
 
             sycl::local_accessor<int, 1> comm(sycl::range<1>(3), cgh);
-            
+            sycl::local_accessor<int, 1> base_offset(sycl::range<1>(1), cgh);
+            sycl::local_accessor<int, 1> sums(sycl::range<1>(WARPS), cgh);
+
             cgh.parallel_for
             (
                 cl::sycl::nd_range<1>(num_blocks*max_group_size, max_group_size),
@@ -61,7 +63,8 @@ syclBFS::syclBFS(csr &graph, int source)
                         num_nodes_c, device_in_queue_c,
                         device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get_pointer());
+                        device_out_queue_c, item, comm.get_pointer(),
+                        base_offset.get_pointer(), sums.get_pointer());
                 }
             );
         }).wait();
@@ -82,11 +85,11 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
                             int num_nodes, int *device_in_queue, 
                             int device_in_queue_size, int *device_out_queue_size, 
                             int *device_distance, int iteration, int *device_out_queue,
-                            cl::sycl::nd_item<1> &item, int *comm)
+                            cl::sycl::nd_item<1> &item, int *comm, int *base_offset, int *sums)
 {
-    int th_id = item.get_global_id(0);
+    int th_id = item.get_group(0) * item.get_local_range(0) + item.get_local_id(0); // block_id*num_threads_in_block + thread_id
     // loop to process all threads and synchronize threads within a block
-    // synchronize only if all at least one of the th_id is less than the queue size
+    // synchronize only if at least one of the th_id is less than the queue size
     do
     {
         int cur_node = th_id < device_in_queue_size ? device_in_queue[th_id] : -1;
@@ -96,8 +99,10 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
 
         bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
-        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm);
-        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
+        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset);
+        // fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
+
+        th_id += item.get_group_range(0) * item.get_local_range(0); // num_blocks_in_grid*num_threads_in_block
 
         item.barrier();
     }
@@ -106,9 +111,12 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
 
 void syclBFS::block_gather(int* column_index, int* distance, 
                            int iteration, int * out_queue, 
-                           int* out_queue_count, int r, int r_end, cl::sycl::nd_item<1> &item, int *comm)
+                           int* out_queue_count, int r, int r_end, 
+                           cl::sycl::nd_item<1> &item, int *comm,
+                           int *base_offset, int *sums)
 {
     int orig_row_start = r;
+    item.barrier();
 	while((sycl::any_of_group(item.get_group(), r < r_end)))
 	{
 		// Vie for control of block.
@@ -143,12 +151,13 @@ void syclBFS::block_gather(int* column_index, int* distance,
 				}
 			}
 			// Obtain offset in queue by computing prefix sum
-			const prescan_result prescan = block_prefix_sum(valid);
-			volatile __shared__ int base_offset[1];
+			const prescan_result prescan = block_prefix_sum(valid, item, sums);
 
 			// Obtain base enqueue offset and share it to whole block.
-			if(threadIdx.x == 0)
-				base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+			if(item_ct1.get_local_id(0) == 0)
+				base_offset[0] = dpct::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
+                                    out_queue_count, prescan.total);
+                                    
 			item.barrier();
 			// Write vertex to the out queue.
 			if (valid == 1)
@@ -159,6 +168,61 @@ void syclBFS::block_gather(int* column_index, int* distance,
 			item.barrier();
 		}
 	}
+}
+
+prescan_result syclBFS::block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
+{
+    int value = val;
+    const int lane_id = item.get_local_id(0) % WARP_SIZE;
+    const int warp_id = item.get_local_id(0) / WARP_SIZE;
+
+    #pragma unroll
+    for(int i = 1; i <= WARP_SIZE; i <<= 1)
+    {
+        const int n = dpct::experimental::select_from_sub_group(0xffffffff, item.get_sub_group(), value, i);
+        if (lane_id >= i)
+        {
+            value += n;
+        }
+    }
+
+	// Write warp total to shared array.
+	if (lane_id == WARP_SIZE - 1)
+	{
+		sums[warp_id] = value;
+	}
+
+    item.barrier();
+
+	if (warp_id == 0 && lane_id < WARPS)
+	{
+        int warp_sum = sums[lane_id];
+        const unsigned int mask = (1 << (WARPS)) - 1;
+        #pragma unroll
+        for (int i = 1; i <= WARPS; i <<= 1)
+        {
+            const int n = dpct::experimental::select_from_sub_group(mask, item.get_sub_group(), warp_sum, i, WARPS);
+
+            if (lane_id >= i)
+            {
+                warp_sum += n;
+            }
+        }
+        sums[lane_id] = warp_sum;
+    }
+
+    item.barrier();
+
+    if (warp_id > 0)
+    {
+        const int block_sum = sums[warp_id-1];
+        value += block_sum;
+    }
+
+    prescan_result result;
+	result.offset = value - val;
+	result.total = sums[WARPS-1];
+	return result; 
 }
 
 
