@@ -29,6 +29,8 @@ syclBFS::syclBFS(csr &graph, int source)
     device_out_queue_size = host_cur_queue_size;
 
     int iteration = 0;
+
+    int num_blocks;
     
     // loop until frontier is empty
     while (host_cur_queue_size > 0)
@@ -41,7 +43,7 @@ syclBFS::syclBFS(csr &graph, int source)
         {
             int *device_col_idx_c = device_col_idx;
             int *device_row_offset_c =  device_row_offset;
-            int num_nodes_c =  num_nodes;
+            int num_nodes_c =  graph_num_nodes;
             int *device_in_queue_c =  device_in_queue;
             int device_in_queue_size_c =  host_cur_queue_size;
             int device_out_queue_size_c =  device_out_queue_size;
@@ -63,8 +65,8 @@ syclBFS::syclBFS(csr &graph, int source)
                         num_nodes_c, device_in_queue_c,
                         device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get_pointer(),
-                        base_offset.get_pointer(), sums.get_pointer());
+                        device_out_queue_c, item, comm.get_multi_ptr(),
+                        base_offset.get_multi_ptr(), sums.get_multi_ptr());
                 }
             );
         }).wait();
