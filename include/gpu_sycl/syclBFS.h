@@ -64,7 +64,7 @@ class syclBFS
         int *device_col_idx;
         int *device_row_offset;
 
-        int device_out_queue_size;
+        int *device_out_queue_size;
 };
 
 

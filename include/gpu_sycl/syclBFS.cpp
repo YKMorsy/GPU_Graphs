@@ -26,7 +26,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
     // copy host to device queue
     gpuQueue.memcpy(device_in_queue, host_queue, graph_num_nodes * sizeof(int)).wait();
-    device_out_queue_size = host_cur_queue_size;
+    *device_out_queue_size = host_cur_queue_size;
 
     int iteration = 0;
 
@@ -35,7 +35,7 @@ syclBFS::syclBFS(csr &graph, int source)
     // loop until frontier is empty
     while (host_cur_queue_size > 0)
     {
-        device_out_queue_size = 0;
+        *device_out_queue_size = 0;
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
@@ -46,7 +46,7 @@ syclBFS::syclBFS(csr &graph, int source)
             int num_nodes_c =  graph_num_nodes;
             int *device_in_queue_c =  device_in_queue;
             int device_in_queue_size_c =  host_cur_queue_size;
-            int device_out_queue_size_c =  device_out_queue_size;
+            int *device_out_queue_size_c =  device_out_queue_size;
             int *device_distance_c = device_distance;
             int iteration_c = iteration;
             int *device_out_queue_c = device_out_queue;
@@ -63,7 +63,7 @@ syclBFS::syclBFS(csr &graph, int source)
                     expand_contract_kernel(
                         device_col_idx_c, device_row_offset_c,
                         num_nodes_c, device_in_queue_c,
-                        device_in_queue_size_c, device_out_queue_size_c.get_multi_ptr<sycl::access::decorated::no>(),
+                        device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
                         device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
                         base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
@@ -71,7 +71,7 @@ syclBFS::syclBFS(csr &graph, int source)
             );
         }).wait();
 
-        host_cur_queue_size = device_out_queue_size;
+        host_cur_queue_size = *device_out_queue_size;
         std::swap(device_in_queue, device_out_queue);
 
         iteration++;
