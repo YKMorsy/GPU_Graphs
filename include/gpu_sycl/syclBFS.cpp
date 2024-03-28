@@ -1,4 +1,4 @@
-#include "syclBFS.hpp"
+#include "syclBFS.h"
 
 const int HASH_RANGE = 128;
 const int WARP_SIZE = 32;
@@ -100,7 +100,7 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
         bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
         block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset);
-        // fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
+        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
 
         th_id += item.get_group_range(0) * item.get_local_range(0); // num_blocks_in_grid*num_threads_in_block
 
@@ -168,6 +168,67 @@ void syclBFS::block_gather(int* column_index, int* distance,
 			item.barrier();
 		}
 	}
+}
+
+void syclBFS::fine_gather(int *device_col_idx, int row_offset_start, 
+                        int row_offset_end, int *device_distance, 
+                        int iteration, int *device_out_queue, 
+                        int *device_out_queue_size, const int node,
+                        cl::sycl::nd_item<1> &item, int *comm,
+                        int *base_offset, int *sums)
+{
+    prescan_result rank = block_prefix_sum(row_offset_end-row_offset_start, item, sums);
+
+    int cta_progress = 0;
+
+    while((rank.total - cta_progress) > 0)
+    {
+        int orig_row_start = row_offset_start;
+        while ((rank.offset < cta_progress + BLOCK_SIZE) && (row_offset_start < row_offset_end))
+        {
+            // add index to shared memory
+            comm[rank.offset - cta_progress] = row_offset_start;
+            rank.offset++;
+            row_offset_start++;
+        }
+
+        item.barrier();
+
+        int neighbor;
+        int valid = 0;
+
+        if (item.get_local_id(0) < (rank.total - cta_progress))
+        {
+            neighbor = device_col_idx[comm[item.get_local_id(0)]];
+            if ((device_distance[neighbor] == -1))
+            {
+                valid = 1;
+                device_distance[neighbor] = iteration + 1;
+            }
+        } 
+
+        item.barrier();
+        const prescan_result prescan = block_prefix_sum(valid, item, sums);
+        
+        if (item.get_local_id(0) == 0)
+        {
+            base_offset[0] = atomicAdd(device_out_queue_size, prescan.total);
+        }
+
+        item.barrier();
+
+		const int queue_index = base_offset[0] + prescan.offset;
+
+        if (valid == 1)
+        {
+            device_out_queue[queue_index] = neighbor;
+        }
+
+        cta_progress += BLOCK_SIZE;
+
+        item.barrier();
+    }
+
 }
 
 prescan_result syclBFS::block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)

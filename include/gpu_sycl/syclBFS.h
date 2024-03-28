@@ -41,7 +41,14 @@ class syclBFS
                             cl::sycl::nd_item<1> &item, int *comm,
                             int *base_offset);
 
-        prescan_result block_prefix_sum(int val);
+        void fine_gather(int *device_col_idx, int row_offset_start, 
+                        int row_offset_end, int *device_distance, 
+                        int iteration, int *device_out_queue, 
+                        int *device_out_queue_size, const int node,
+                        cl::sycl::nd_item<1> &item, int *comm,
+                        int *base_offset, int *sums);
+
+        prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums);
 
         void init_distance(csr &graph);
         void init_queue(csr &graph);
