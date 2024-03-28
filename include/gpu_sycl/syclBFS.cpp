@@ -101,8 +101,8 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
 
         bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
-        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset);
-        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
+        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset, sums);
+        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node, item, comm, base_offset, sums);
 
         th_id += item.get_group_range(0) * item.get_local_range(0); // num_blocks_in_grid*num_threads_in_block
 
@@ -145,7 +145,7 @@ void syclBFS::block_gather(int* column_index, int* distance,
 			{
 				neighbor = column_index[r_gather];
 				// Look up status of current neighbor.
-				if ((distance[neighbor] == -1))
+				if (distance[neighbor] == -1)
                 {
                     valid = 1;
 					// Update label.
@@ -156,7 +156,7 @@ void syclBFS::block_gather(int* column_index, int* distance,
 			const prescan_result prescan = block_prefix_sum(valid, item, sums);
 
 			// Obtain base enqueue offset and share it to whole block.
-			if(item_ct1.get_local_id(0) == 0)
+			if(item.get_local_id(0) == 0)
 				base_offset[0] = dpct::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
                                     out_queue_count, prescan.total);
                                     
@@ -202,7 +202,7 @@ void syclBFS::fine_gather(int *device_col_idx, int row_offset_start,
         if (item.get_local_id(0) < (rank.total - cta_progress))
         {
             neighbor = device_col_idx[comm[item.get_local_id(0)]];
-            if ((device_distance[neighbor] == -1))
+            if (device_distance[neighbor] == -1)
             {
                 valid = 1;
                 device_distance[neighbor] = iteration + 1;
@@ -214,7 +214,8 @@ void syclBFS::fine_gather(int *device_col_idx, int row_offset_start,
         
         if (item.get_local_id(0) == 0)
         {
-            base_offset[0] = atomicAdd(device_out_queue_size, prescan.total);
+            base_offset[0] = dpct::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
+                                    device_out_queue_size, prescan.total);
         }
 
         item.barrier();

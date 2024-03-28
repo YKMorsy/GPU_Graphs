@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <CL/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include "../csr/csr.h"
 
 struct prescan_result
