@@ -65,8 +65,8 @@ syclBFS::syclBFS(csr &graph, int source)
                         num_nodes_c, device_in_queue_c,
                         device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get_multi_ptr(),
-                        base_offset.get_multi_ptr(), sums.get_multi_ptr());
+                        device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
+                        base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
                 }
             );
         }).wait();
