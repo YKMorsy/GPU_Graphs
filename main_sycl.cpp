@@ -30,14 +30,13 @@ int main(int argc, char* argv[])
     // }
     // std::cout << std::endl;
 
-    std::cout << "\nRunning CPU BFS\n";
+    std::cout << "\nRunning CPU BFS\n\n";
     cpuBFS cpuBFS(graph, source);
-    std::cout << "\nFinished CPU BFS\n";
-    std::cout << std::endl;
+    // std::cout << std::endl;
 
-    std::cout << "\nRunning SYCL BFS\n";
+    std::cout << "\nRunning SYCL BFS\n\n";
     syclBFS syclBFS(graph, source);
-    std::cout << std::endl;
+    // std::cout << std::endl;
 
     for (int i = 0; i < graph.num_nodes; i++) 
     {
