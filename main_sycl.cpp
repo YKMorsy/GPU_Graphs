@@ -15,20 +15,40 @@ int main(int argc, char* argv[])
 
     csr graph(file);
 
-    std::cout << "Column indices: " << graph.num_edges << std::endl;
-    for (int i = 0; i < graph.num_edges; i++) {
-        std::cout << graph.col_idx[i] << " | ";
-    }
-    std::cout << std::endl;
+    std::cout << "Num Nodes: " << graph.num_nodes << std::endl;
+    std::cout << "Num Edges: " << graph.num_edges << std::endl;
 
-    std::cout << "Row offset: " << graph.num_nodes << std::endl;
-    for (int i = 0; i < graph.num_nodes+1; i++) {
-        std::cout << graph.row_offset[i] << " | ";
-    }
+    // std::cout << "Column indices: " << graph.num_edges << std::endl;
+    // for (int i = 0; i < graph.num_edges; i++) {
+    //     std::cout << graph.col_idx[i] << " | ";
+    // }
+    // std::cout << std::endl;
+
+    // std::cout << "Row offset: " << graph.num_nodes << std::endl;
+    // for (int i = 0; i < graph.num_nodes+1; i++) {
+    //     std::cout << graph.row_offset[i] << " | ";
+    // }
+    // std::cout << std::endl;
+
+    std::cout << "\nRunning CPU BFS\n";
+    cpuBFS cpuBFS(graph, source);
     std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n";
     syclBFS syclBFS(graph, source);
+    std::cout << std::endl;
+
+    for (int i = 0; i < graph.num_nodes; i++) 
+    {
+        if (syclBFS.host_distance[i] != cpuBFS.distance[i])
+        {
+            std::cout << "mismatch at node " << i+1 << std::endl;
+            std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
+            std::cout << "gpu: " << syclBFS.host_distance[i] << std::endl;
+            break;
+        }
+        
+    }
 
     return 0;
 }
