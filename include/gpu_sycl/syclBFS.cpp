@@ -39,17 +39,16 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
-        gpuQueue.submit([&](cl::sycl::handler &cgh)
-        {
-            // Capturing necessary variables by value
-            int graph_num_nodes_c = graph_num_nodes;
-            int host_cur_queue_size_c = host_cur_queue_size;
-            int* device_col_idx_c = device_col_idx;
-            int* device_row_offset_c = device_row_offset;
-            int* device_in_queue_c = device_in_queue;
-            int* device_out_queue_size_c = device_out_queue_size;
-            int* device_distance_c = device_distance;
-            int* device_out_queue_c = device_out_queue;
+        gpuQueue.submit([&](cl::sycl::handler &cgh) {
+            int *device_col_idx_c = device_col_idx;
+            int *device_row_offset_c = device_row_offset;
+            int num_nodes_c = graph_num_nodes;
+            int *device_in_queue_c = device_in_queue;
+            int device_in_queue_size_c = host_cur_queue_size;
+            int *device_out_queue_size_c = device_out_queue_size;
+            int *device_distance_c = device_distance;
+            int iteration_c = iteration;
+            int *device_out_queue_c = device_out_queue;
 
             sycl::local_accessor<int, 1> comm(sycl::range<1>(3), cgh);
             sycl::local_accessor<int, 1> base_offset(sycl::range<1>(1), cgh);
@@ -57,20 +56,17 @@ syclBFS::syclBFS(csr &graph, int source)
 
             cgh.parallel_for(
                 cl::sycl::nd_range<1>(num_blocks * max_group_size, max_group_size),
-                [=](cl::sycl::nd_item<1> item)
-                {
+                [=](cl::sycl::nd_item<1> item) {
                     expand_contract_kernel(
                         device_col_idx_c, device_row_offset_c,
-                        graph_num_nodes_c, device_in_queue_c,
-                        host_cur_queue_size_c, device_out_queue_size_c,
-                        device_distance_c, iteration,
-                        device_out_queue_c, item, comm.get_pointer(),
-                        base_offset.get_pointer(), sums.get_pointer());
+                        num_nodes_c, device_in_queue_c,
+                        device_in_queue_size_c, device_out_queue_size_c,
+                        device_distance_c, iteration_c,
+                        device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
+                        base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
                 }
             );
         }).wait();
-
-
 
 
         host_cur_queue_size = *device_out_queue_size;
