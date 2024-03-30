@@ -233,6 +233,7 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
 syclBFS::syclBFS(csr &graph, int source)
 {
     std::cout << "variable init\n";
+    std::cout.flush();
     graph_num_nodes = graph.num_nodes;
     graph_num_edges = graph.num_edges;
 
@@ -259,6 +260,7 @@ syclBFS::syclBFS(csr &graph, int source)
     int num_blocks;
 
     std::cout << "starting iterations\n";
+    std::cout.flush();
     
     // loop until frontier is empty
     while (host_cur_queue_size > 0)
@@ -300,6 +302,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
 
         std::cout << "after\n";
+        std::cout.flush();
 
         host_cur_queue_size = *device_out_queue_size;
         std::swap(device_in_queue, device_out_queue);
