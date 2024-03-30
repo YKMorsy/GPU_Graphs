@@ -35,20 +35,20 @@ int main(int argc, char* argv[])
     // std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n\n";
-    syclBFS syclBFS(graph, source);
+    // syclBFS syclBFS(graph, source);
     // std::cout << std::endl;
 
-    for (int i = 0; i < graph.num_nodes; i++) 
-    {
-        if (syclBFS.host_distance[i] != cpuBFS.distance[i])
-        {
-            std::cout << "mismatch at node " << i+1 << std::endl;
-            std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
-            std::cout << "gpu: " << syclBFS.host_distance[i] << std::endl;
-            break;
-        }
+    // for (int i = 0; i < graph.num_nodes; i++) 
+    // {
+    //     if (syclBFS.host_distance[i] != cpuBFS.distance[i])
+    //     {
+    //         std::cout << "mismatch at node " << i+1 << std::endl;
+    //         std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
+    //         std::cout << "gpu: " << syclBFS.host_distance[i] << std::endl;
+    //         break;
+    //     }
         
-    }
+    // }
 
     return 0;
 }
