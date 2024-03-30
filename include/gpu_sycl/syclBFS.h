@@ -41,7 +41,7 @@ class syclBFS
                             int iteration, int * out_queue, 
                             int* out_queue_count, int r, int r_end, 
                             cl::sycl::nd_item<1> &item, int *comm,
-                            int *base_offset);
+                            int *base_offset, int *sums);
 
         void fine_gather(int *device_col_idx, int row_offset_start, 
                         int row_offset_end, int *device_distance, 
