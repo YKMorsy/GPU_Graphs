@@ -39,7 +39,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
-        gpuQueue.submit([=, &graph_num_nodes, &iteration](cl::sycl::handler &cgh) 
+        gpuQueue.submit([=, &iteration](cl::sycl::handler &cgh) 
         {
             int *device_col_idx_c = device_col_idx;
             int *device_row_offset_c =  device_row_offset;
