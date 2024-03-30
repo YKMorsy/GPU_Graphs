@@ -5,6 +5,12 @@ const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 64;
 const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
+struct prescan_result
+{
+    int offset;
+    int total;
+};
+
 prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
 {
 
@@ -226,10 +232,9 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
 
 syclBFS::syclBFS(csr &graph, int source)
 {
+    std::cout << "variable init\n";
     graph_num_nodes = graph.num_nodes;
     graph_num_edges = graph.num_edges;
-
-    std::cout << "variable init\n";
 
     // initialize queue and sizes
     init_queue(graph);

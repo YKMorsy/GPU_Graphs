@@ -8,11 +8,7 @@
 // #include <syclcompat/syclcompat.hpp>
 #include "../csr/csr.h"
 
-struct prescan_result
-{
-    int offset;
-    int total;
-};
+
 
 class syclBFS
 {
