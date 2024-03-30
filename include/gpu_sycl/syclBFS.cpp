@@ -164,7 +164,8 @@ void syclBFS::block_gather(int* column_index, int* distance,
                 // base_offset[0].fetch_add(prescan.total);
 
                 cl::sycl::atomic_ref<int, cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device, cl::sycl::access::address_space::global_space> base_offset(*device_out_queue_size);
-                base_offset.load().fetch_add(prescan.total);
+
+                base_offset.fetch_add(prescan.total);
 
 
                 // base_offset[0] = at_sum;
@@ -227,7 +228,9 @@ void syclBFS::fine_gather(int *device_col_idx, int row_offset_start,
         if (item.get_local_id(0) == 0)
         {
             cl::sycl::atomic_ref<int, cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device, cl::sycl::access::address_space::global_space> base_offset(*device_out_queue_size);
-            base_offset.load().fetch_add(prescan.total);
+
+            base_offset.fetch_add(prescan.total);
+
 
             // base_offset[0] = at_sum;
 
