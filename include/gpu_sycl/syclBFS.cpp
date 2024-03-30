@@ -157,7 +157,8 @@ void syclBFS::block_gather(int* column_index, int* distance,
 
 			// Obtain base enqueue offset and share it to whole block.
 			if(item.get_local_id(0) == 0)
-				base_offset[0] = cl::sycl::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
+                // sycl::atomic_fetch_add<int>(sycl::atomic<int>(out_queue_count), prescan.total);
+				base_offset[0] = cl::sycl::atomic::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
                                     out_queue_count, prescan.total);
                                     
 			item.barrier();
