@@ -4,7 +4,7 @@
 #include <iostream>
 #include <CL/sycl.hpp>
 // #include <dpct/dpct.hpp>
-#include <syclcompat/syclcompat.hpp>
+// #include <syclcompat/syclcompat.hpp>
 #include "../csr/csr.h"
 
 struct prescan_result
