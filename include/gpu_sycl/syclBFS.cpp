@@ -83,7 +83,7 @@ syclBFS::syclBFS(csr &graph, int source)
     host_distance[source] = 0;
 }
 
-void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
+void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
                             int num_nodes, int *device_in_queue, 
                             int device_in_queue_size, int *device_out_queue_size, 
                             int *device_distance, int iteration, int *device_out_queue,
