@@ -212,7 +212,13 @@ __device__ prescan_result block_prefix_sum(const int val) {
 
 			// Obtain base enqueue offset and share it to whole block.
 			if(threadIdx.x == 0)
-				base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+            {
+				// base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+                int old_value = *out_queue_count;
+                *out_queue_count += prescan.total;
+                base_offset[0] = old_value;
+                // base_offset[0] = *out_queue_count+prescan.total;
+            }
 			__syncthreads();
 			// Write vertex to the out queue.
 			if (valid == 1)
@@ -287,10 +293,14 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
 		const prescan_result prescan = block_prefix_sum(valid);
 		volatile __shared__ int base_offset[1];
 
-        if (threadIdx.x == 0)
-        {
-            base_offset[0] = atomicAdd(device_out_queue_size, prescan.total);
-        }
+			if(threadIdx.x == 0)
+            {
+				// base_offset[0] = atomicAdd(device_out_queue_size,prescan.total);
+                int old_value = *device_out_queue_size;
+                *device_out_queue_size += prescan.total;
+                base_offset[0] = old_value;
+                // base_offset[0] = *device_out_queue_size+prescan.total;
+            }
 
         __syncthreads();
 

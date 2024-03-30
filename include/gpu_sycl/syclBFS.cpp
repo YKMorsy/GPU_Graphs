@@ -157,23 +157,16 @@ void syclBFS::block_gather(int* column_index, int* distance,
 
 			// Obtain base enqueue offset and share it to whole block.
 			if(item.get_local_id(0) == 0)
-                // sycl::atomic_fetch_add<int>(sycl::atomic<int>(out_queue_count), prescan.total);
-
-                // cl::sycl::atomic_ref<int, cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device,
-                //     cl::sycl::access::address_space::global_space> base_offset[0] { *device_out_queue_size };
-                // base_offset[0].fetch_add(prescan.total);
-
-                cl::sycl::atomic_ref<(*int), cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device, cl::sycl::access::address_space::global_space> *base_offset(*device_out_queue_size);
-
-                *base_offset.fetch_add(prescan.total);
-
-
-                // base_offset[0] = at_sum;
-
-				// base_offset[0] = atomic::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
-                //                     out_queue_count, prescan.total);
+            {
+                int old_value = *out_queue_count;
+                *out_queue_count += prescan.total;
+                base_offset[0] = old_value;
+            }
+                // cl::sycl::atomic_fetch_add<cl::sycl::access::address_space::generic_space>(
+                //                      out_queue_count, prescan.total);
                                     
 			item.barrier();
+
 			// Write vertex to the out queue.
 			if (valid == 1)
 				out_queue[base_offset[0]+prescan.offset] = neighbor;
@@ -227,10 +220,13 @@ void syclBFS::fine_gather(int *device_col_idx, int row_offset_start,
         
         if (item.get_local_id(0) == 0)
         {
-            cl::sycl::atomic_ref<(*int), cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device, cl::sycl::access::address_space::global_space> *base_offset(*device_out_queue_size);
+            // cl::sycl::atomic_ref<(*int), cl::sycl::memory_order::relaxed, cl::sycl::memory_scope::device, cl::sycl::access::address_space::global_space> *base_offset(*device_out_queue_size);
 
-            *base_offset.fetch_add(prescan.total);
+            // *base_offset.fetch_add(prescan.total);
 
+            int old_value = *device_out_queue_size;
+            *device_out_queue_size += prescan.total;
+            base_offset[0] = old_value;
 
             // base_offset[0] = at_sum;
 
