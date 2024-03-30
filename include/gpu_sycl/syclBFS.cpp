@@ -229,6 +229,8 @@ syclBFS::syclBFS(csr &graph, int source)
     graph_num_nodes = graph.num_nodes;
     graph_num_edges = graph.num_edges;
 
+    std::cout << "variable init\n";
+
     // initialize queue and sizes
     init_queue(graph);
 
@@ -250,6 +252,8 @@ syclBFS::syclBFS(csr &graph, int source)
     int iteration = 0;
 
     int num_blocks;
+
+    std::cout << "starting iterations\n";
     
     // loop until frontier is empty
     while (host_cur_queue_size > 0)
