@@ -263,6 +263,9 @@ syclBFS::syclBFS(csr &graph, int source)
     host_queue[0] = source;
     host_cur_queue_size = host_cur_queue_size + 1;
 
+    std::cout << "host vars initied\n";
+    std::cout.flush();
+
     // copy host to device queue
     gpuQueue.memcpy(device_in_queue, host_queue, graph_num_nodes * sizeof(int)).wait();
     *device_out_queue_size = host_cur_queue_size;
