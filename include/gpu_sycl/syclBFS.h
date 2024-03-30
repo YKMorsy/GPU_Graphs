@@ -53,9 +53,9 @@ class syclBFS
 
         // prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums);
 
-        void init_distance(csr &graph);
-        void init_queue(csr &graph);
-        void init_graph_for_device(csr &graph);
+        // void init_distance(csr &graph);
+        // void init_queue(csr &graph);
+        // void init_graph_for_device(csr &graph);
 
         int *host_queue;
         int host_cur_queue_size;
