@@ -32,7 +32,11 @@ int main(int argc, char* argv[])
 
     std::cout << "\nRunning CPU BFS\n\n";
     cpuBFS cpuBFS(graph, source);
-    // std::cout << std::endl;
+    std::cout << "Distance vector: " << std::endl;
+    for (int i = 0; i < graph.num_nodes; i++) {
+        std::cout << cpuBFS.distance[i] << " | ";
+    }
+    std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n\n";
     // syclBFS syclBFS(graph, source);
