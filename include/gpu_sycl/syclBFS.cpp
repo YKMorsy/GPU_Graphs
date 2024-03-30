@@ -39,7 +39,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
-        gpuQueue.submit([&](cl::sycl::handler &cgh) 
+        gpuQueue.submit([*this](cl::sycl::handler &cgh) 
         {
             int *device_col_idx_c = device_col_idx;
             int *device_row_offset_c =  device_row_offset;
@@ -53,7 +53,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
             sycl::local_accessor<int, 1> comm(sycl::range<1>(3), cgh);
             sycl::local_accessor<int, 1> base_offset(sycl::range<1>(1), cgh);
-            sycl::local_accessor<int, 1> sums(sycl::range<1>(WARPS), cgh);
+            sycl::local_accessor<int, 1> sums(sycl::range<1>(BLOCK_SIZE), cgh);
 
             cgh.parallel_for
             (
