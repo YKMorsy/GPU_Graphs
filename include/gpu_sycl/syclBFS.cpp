@@ -39,7 +39,7 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
-        gpuQueue.submit([=](cl::sycl::handler &cgh) 
+        gpuQueue.submit([=, &graph_num_nodes, &iteration](cl::sycl::handler &cgh) 
         {
             int *device_col_idx_c = device_col_idx;
             int *device_row_offset_c =  device_row_offset;
@@ -65,11 +65,12 @@ syclBFS::syclBFS(csr &graph, int source)
                         num_nodes_c, device_in_queue_c,
                         device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
-                        base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
+                        device_out_queue_c, item, comm.get_pointer(),
+                        base_offset.get_pointer(), sums.get_pointer());
                 }
             );
         }).wait();
+
 
         host_cur_queue_size = *device_out_queue_size;
         std::swap(device_in_queue, device_out_queue);
