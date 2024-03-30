@@ -244,6 +244,8 @@ prescan_result syclBFS::block_prefix_sum(int val, cl::sycl::nd_item<1> &item, in
 
     item.barrier();
 
+    int os = 1;
+
     for (int d = BLOCK_SIZE >> 1; d > 0; d >>= 1) {
         item.barrier();
         if (thid < d) {
