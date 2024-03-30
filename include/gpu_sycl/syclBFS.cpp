@@ -81,7 +81,7 @@ syclBFS::syclBFS(csr &graph, int source)
     host_distance[source] = 0;
 }
 
-void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
+void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
                             int num_nodes, int *device_in_queue, 
                             int device_in_queue_size, int *device_out_queue_size, 
                             int *device_distance, int iteration, int *device_out_queue,
@@ -109,7 +109,7 @@ void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset
     while((sycl::any_of_group(item.get_group(), th_id < device_in_queue_size)));
 }
 
-void syclBFS::block_gather(int* column_index, int* distance, 
+void block_gather(int* column_index, int* distance, 
                            int iteration, int * out_queue, 
                            int* out_queue_count, int r, int r_end, 
                            cl::sycl::nd_item<1> &item, int *comm,
@@ -176,7 +176,7 @@ void syclBFS::block_gather(int* column_index, int* distance,
 	}
 }
 
-void syclBFS::fine_gather(int *device_col_idx, int row_offset_start, 
+void fine_gather(int *device_col_idx, int row_offset_start, 
                         int row_offset_end, int *device_distance, 
                         int iteration, int *device_out_queue, 
                         int *device_out_queue_size, const int node,
