@@ -51,7 +51,7 @@ class syclBFS
         //                 cl::sycl::nd_item<1> &item, int *comm,
         //                 int *base_offset, int *sums);
 
-        prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums);
+        // prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums);
 
         void init_distance(csr &graph);
         void init_queue(csr &graph);
