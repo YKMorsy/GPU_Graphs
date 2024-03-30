@@ -237,14 +237,26 @@ syclBFS::syclBFS(csr &graph, int source)
     graph_num_nodes = graph.num_nodes;
     graph_num_edges = graph.num_edges;
 
+    std::cout << "graph vars\n";
+    std::cout.flush();
+
     // initialize queue and sizes
     init_queue(graph);
+
+    std::cout << "queue inited\n";
+    std::cout.flush();
 
     // initialize distance with -1 on host
     init_distance(graph);
 
+    std::cout << "distance inited\n";
+    std::cout.flush();
+
     // initialize device graph variables
     init_graph_for_device(graph);
+
+    std::cout << "graph inited\n";
+    std::cout.flush();
 
     // start with source (update distance and queue)
     host_distance[source] = 0;
@@ -270,6 +282,7 @@ syclBFS::syclBFS(csr &graph, int source)
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
         std::cout << "before\n";
+        std::cout.flush();
 
         gpuQueue.submit([&](cl::sycl::handler &cgh) {
             int *device_col_idx_c = device_col_idx;

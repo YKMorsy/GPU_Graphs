@@ -17,13 +17,13 @@ int main(int argc, char* argv[])
 
     csr graph(file);
 
-    // std::cout << "Column indices: " << graph.num_edges << std::endl;
+    std::cout << "Column indices: " << graph.num_edges << std::endl;
     // for (int i = 0; i < graph.num_edges; i++) {
     //     std::cout << graph.col_idx[i] << " | ";
     // }
     // std::cout << std::endl;
 
-    // std::cout << "Row offset: " << graph.num_nodes << std::endl;
+    std::cout << "Row offset: " << graph.num_nodes << std::endl;
     // for (int i = 0; i < graph.num_nodes+1; i++) {
     //     std::cout << graph.row_offset[i] << " | ";
     // }
