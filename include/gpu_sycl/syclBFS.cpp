@@ -5,32 +5,55 @@ const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 64;
 const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
-void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
-                            int num_nodes, int *device_in_queue, 
-                            int device_in_queue_size, int *device_out_queue_size, 
-                            int *device_distance, int iteration, int *device_out_queue,
-                            cl::sycl::nd_item<1> &item, int *comm, int *base_offset, int *sums)
+prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
 {
-    int th_id = item.get_group(0) * item.get_local_range(0) + item.get_local_id(0); // block_id*num_threads_in_block + thread_id
-    // loop to process all threads and synchronize threads within a block
-    // synchronize only if at least one of the th_id is less than the queue size
-    do
-    {
-        int cur_node = th_id < device_in_queue_size ? device_in_queue[th_id] : -1;
 
-        int row_offset_start = cur_node < 0 ? 0 : device_row_offset[cur_node];
-        int row_offset_end = cur_node < 0 ? 0 : device_row_offset[cur_node+1];
+    prescan_result result;
 
-        bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
+    int thid = item.get_local_id(0);
+    sums[thid] = val;
 
-        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset, sums);
-        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node, item, comm, base_offset, sums);
+    item.barrier();
 
-        th_id += item.get_group_range(0) * item.get_local_range(0); // num_blocks_in_grid*num_threads_in_block
+    int os = 1;
+
+    for (int d = BLOCK_SIZE >> 1; d > 0; d >>= 1) {
+        item.barrier();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            sums[bi] += sums[ai];
+        }
+
+        os *= 2;
+    }
+
+    if (thid == 0) { 
+        // result.block_sum = block_data[blockDim.x - 1];
+        sums[BLOCK_SIZE - 1] = 0; // Clear the last element
+    }
+
+    for (int d = 1; d < BLOCK_SIZE; d *= 2) {
+
+        os /= 2;
 
         item.barrier();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            int t = sums[ai];
+
+            sums[ai] = sums[bi];
+            sums[bi] += t;
+        }
     }
-    while((sycl::any_of_group(item.get_group(), th_id < device_in_queue_size)));
+
+    item.barrier();
+
+    result.offset = sums[thid];
+    result.total = sums[BLOCK_SIZE - 1];
+
+    return result;
 }
 
 void block_gather(int* column_index, int* distance, 
@@ -172,57 +195,34 @@ void fine_gather(int *device_col_idx, int row_offset_start,
 
 }
 
-prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
+
+void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
+                            int num_nodes, int *device_in_queue, 
+                            int device_in_queue_size, int *device_out_queue_size, 
+                            int *device_distance, int iteration, int *device_out_queue,
+                            cl::sycl::nd_item<1> &item, int *comm, int *base_offset, int *sums)
 {
+    int th_id = item.get_group(0) * item.get_local_range(0) + item.get_local_id(0); // block_id*num_threads_in_block + thread_id
+    // loop to process all threads and synchronize threads within a block
+    // synchronize only if at least one of the th_id is less than the queue size
+    do
+    {
+        int cur_node = th_id < device_in_queue_size ? device_in_queue[th_id] : -1;
 
-    prescan_result result;
+        int row_offset_start = cur_node < 0 ? 0 : device_row_offset[cur_node];
+        int row_offset_end = cur_node < 0 ? 0 : device_row_offset[cur_node+1];
 
-    int thid = item.get_local_id(0);
-    sums[thid] = val;
+        bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
-    item.barrier();
+        block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start, item, comm, base_offset, sums);
+        fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node, item, comm, base_offset, sums);
 
-    int os = 1;
-
-    for (int d = BLOCK_SIZE >> 1; d > 0; d >>= 1) {
-        item.barrier();
-        if (thid < d) {
-            int ai = os * (2 * thid+1) - 1;
-            int bi = os * (2 * thid+2) - 1;
-            sums[bi] += sums[ai];
-        }
-
-        os *= 2;
-    }
-
-    if (thid == 0) { 
-        // result.block_sum = block_data[blockDim.x - 1];
-        sums[BLOCK_SIZE - 1] = 0; // Clear the last element
-    }
-
-    for (int d = 1; d < BLOCK_SIZE; d *= 2) {
-
-        os /= 2;
+        th_id += item.get_group_range(0) * item.get_local_range(0); // num_blocks_in_grid*num_threads_in_block
 
         item.barrier();
-        if (thid < d) {
-            int ai = os * (2 * thid+1) - 1;
-            int bi = os * (2 * thid+2) - 1;
-            int t = sums[ai];
-
-            sums[ai] = sums[bi];
-            sums[bi] += t;
-        }
     }
-
-    item.barrier();
-
-    result.offset = sums[thid];
-    result.total = sums[BLOCK_SIZE - 1];
-
-    return result;
+    while((sycl::any_of_group(item.get_group(), th_id < device_in_queue_size)));
 }
-
 
 syclBFS::syclBFS(csr &graph, int source)
 {
