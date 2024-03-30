@@ -32,6 +32,7 @@ int main(int argc, char* argv[])
 
     std::cout << "\nRunning CPU BFS\n";
     cpuBFS cpuBFS(graph, source);
+    std::cout << "\nFinished CPU BFS\n";
     std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n";
