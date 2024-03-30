@@ -1,16 +1,13 @@
 # Compiler
 CC = g++
 NVCC = nvcc
-
-# Compiler flags
-# CFLAGS = -Wall -Wextra -std=c++20
-# NVCCFLAGS = -std=c++20
+DPCPP = dpcpp
 
 # Source files
-SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu/gpuBFS.cu main.cu
+SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu_sycl/syclBFS.cpp main_sycl.cpp
 
 # Object files (substitute .cpp and .cu with .o)
-OBJS = $(filter %.o, $(SRCS:.cpp=.o) $(SRCS:.cu=.o))
+OBJS = $(filter %.o, $(SRCS:.cpp=.o))
 
 # Executable name
 EXEC = graphBFS
@@ -20,15 +17,11 @@ all: $(EXEC)
 
 # Rule to build executable
 $(EXEC): $(OBJS)
-	@$(NVCC) $(NVCCFLAGS) $(OBJS) -o $(EXEC)
+	@$(DPCPP) $(OBJS) -o $(EXEC)
 
 # Rule to compile source files (.cpp)
 %.o: %.cpp
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-# Rule to compile CUDA source files (.cu)
-%.o: %.cu
-	@$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	@$(DPCPP) $(CFLAGS) -c $< -o $@
 
 # Clean rule
 clean:

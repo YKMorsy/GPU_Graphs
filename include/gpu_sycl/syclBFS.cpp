@@ -236,57 +236,51 @@ void syclBFS::fine_gather(int *device_col_idx, int row_offset_start,
 
 prescan_result syclBFS::block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
 {
-    int value = val;
-    const int lane_id = item.get_local_id(0) % WARP_SIZE;
-    const int warp_id = item.get_local_id(0) / WARP_SIZE;
-
-    #pragma unroll
-    for(int i = 1; i <= WARP_SIZE; i <<= 1)
-    {
-        const int n = dpct::experimental::select_from_sub_group(0xffffffff, item.get_sub_group(), value, i);
-        if (lane_id >= i)
-        {
-            value += n;
-        }
-    }
-
-	// Write warp total to shared array.
-	if (lane_id == WARP_SIZE - 1)
-	{
-		sums[warp_id] = value;
-	}
-
-    item.barrier();
-
-	if (warp_id == 0 && lane_id < WARPS)
-	{
-        int warp_sum = sums[lane_id];
-        const unsigned int mask = (1 << (WARPS)) - 1;
-        #pragma unroll
-        for (int i = 1; i <= WARPS; i <<= 1)
-        {
-            const int n = dpct::experimental::select_from_sub_group(mask, item.get_sub_group(), warp_sum, i, WARPS);
-
-            if (lane_id >= i)
-            {
-                warp_sum += n;
-            }
-        }
-        sums[lane_id] = warp_sum;
-    }
-
-    item.barrier();
-
-    if (warp_id > 0)
-    {
-        const int block_sum = sums[warp_id-1];
-        value += block_sum;
-    }
 
     prescan_result result;
-	result.offset = value - val;
-	result.total = sums[WARPS-1];
-	return result; 
+
+    int thid = item.get_local_id(0);
+    sums[thid] = val;
+
+    item.barrier();
+
+    for (int d = BLOCK_SIZE >> 1; d > 0; d >>= 1) {
+        item.barrier();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            sums[bi] += sums[ai];
+        }
+
+        os *= 2;
+    }
+
+    if (thid == 0) { 
+        // result.block_sum = block_data[blockDim.x - 1];
+        sums[BLOCK_SIZE - 1] = 0; // Clear the last element
+    }
+
+    for (int d = 1; d < BLOCK_SIZE; d *= 2) {
+
+        os /= 2;
+
+        item.barrier();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            int t = sums[ai];
+
+            sums[ai] = sums[bi];
+            sums[bi] += t;
+        }
+    }
+
+    item.barrier();
+
+    result.offset = sums[thid];
+    result.total = sums[BLOCK_SIZE - 1];
+
+    return result;
 }
 
 

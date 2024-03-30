@@ -1,8 +1,8 @@
 #ifndef GPUBFS_H
 #define GPUBFS_H
 
-#include <dpct/dpct.hpp>
-#include <CL/sycl.hpp>
+// #include <dpct/dpct.hpp>
+// #include <CL/sycl.hpp>
 #include <stdio.h>
 #include <queue>
 #include <iostream>

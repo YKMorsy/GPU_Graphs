@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
 
     // double cpu_time = (end_cpu - start_cpu) / (double)CLOCKS_PER_SEC;
-    std::cout << "CPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
+    std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
     // double gpu_time = (end_gpu - start_gpu) / (double)CLOCKS_PER_SEC;
     std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;

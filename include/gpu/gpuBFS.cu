@@ -2,7 +2,7 @@
 
 const int HASH_RANGE = 128;
 const int WARP_SIZE = 32;
-const int BLOCK_SIZE = 64;
+const int BLOCK_SIZE = 32;
 const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
 int div_up(int dividend, int divisor)
@@ -52,60 +52,119 @@ void init_distance_kernel(int *device_distance, int size)
 	return v;
 }
 
- __device__ prescan_result block_prefix_sum(const int val)
-{    
-	volatile __shared__ int sums[WARPS];
-	int value = val;
+//  __device__ prescan_result block_prefix_sum(const int val)
+// {    
+// 	volatile __shared__ int sums[WARPS];
+// 	int value = val;
 
-	const int lane_id = threadIdx.x % WARP_SIZE;
-	const int warp_id = threadIdx.x / WARP_SIZE;
+// 	const int lane_id = threadIdx.x % WARP_SIZE;
+// 	const int warp_id = threadIdx.x / WARP_SIZE;
 
-	// Warp-wide prefix sums.
-#pragma unroll
-	for(int i = 1; i <= WARP_SIZE; i <<= 1)
-	{
-		const int n = __shfl_up_sync(0xffffffff, value, i, WARP_SIZE);
-		if (lane_id >= i)
-			value += n;
-	}
+// 	// Warp-wide prefix sums.
+// #pragma unroll
+// 	for(int i = 1; i <= WARP_SIZE; i <<= 1)
+// 	{
+// 		const int n = __shfl_up_sync(0xffffffff, value, i, WARP_SIZE);
+// 		if (lane_id >= i)
+// 			value += n;
+// 	}
 
-	// Write warp total to shared array.
-	if (lane_id == WARP_SIZE - 1)
-	{
-		sums[warp_id] = value;
-	}
+// 	// Write warp total to shared array.
+// 	if (lane_id == WARP_SIZE - 1)
+// 	{
+// 		sums[warp_id] = value;
+// 	}
 
-	__syncthreads();
+// 	__syncthreads();
 
-	// Prefix sum of warp sums.
-	if (warp_id == 0 && lane_id < WARPS)
-	{
-		int warp_sum = sums[lane_id];
-		const unsigned int mask = (1 << (WARPS)) - 1;
-#pragma unroll
-		for (int i = 1; i <= WARPS; i <<= 1)
-		{
-			const int n = __shfl_up_sync(mask, warp_sum, i, WARPS);
-			if (lane_id >= i)
-				warp_sum += n;
-		}
+// 	// Prefix sum of warp sums.
+// 	if (warp_id == 0 && lane_id < WARPS)
+// 	{
+// 		int warp_sum = sums[lane_id];
+// 		const unsigned int mask = (1 << (WARPS)) - 1;
+// #pragma unroll
+// 		for (int i = 1; i <= WARPS; i <<= 1)
+// 		{
+// 			const int n = __shfl_up_sync(mask, warp_sum, i, WARPS);
+// 			if (lane_id >= i)
+// 				warp_sum += n;
+// 		}
 
-		sums[lane_id] = warp_sum;
-	}
+// 		sums[lane_id] = warp_sum;
+// 	}
 
-	__syncthreads();
+// 	__syncthreads();
 
-	// Add total sum of previous WARPS to current element.
-	if (warp_id > 0)
-	{
-		const int block_sum = sums[warp_id-1];
-		value += block_sum;
-	}
+// 	// Add total sum of previous WARPS to current element.
+// 	if (warp_id > 0)
+// 	{
+// 		const int block_sum = sums[warp_id-1];
+// 		value += block_sum;
+// 	}
 
-	prescan_result result;
-	result.offset = value - val;
-	result.total = sums[WARPS-1];
-	return result; 
+// 	prescan_result result;
+// 	result.offset = value - val;
+// 	result.total = sums[WARPS-1];
+// 	return result; 
+// }
+
+__device__ prescan_result block_prefix_sum(const int val) {
+    __shared__ int block_data[BLOCK_SIZE]; // Assuming maximum block size of 1024 threads
+    prescan_result result;
+
+    int thid = threadIdx.x;
+    block_data[thid] = val; // Assign value to block_data
+    
+
+    __syncthreads();
+
+    int os = 1;
+
+    // Compute prefix sum
+    for (int d = blockDim.x >> 1; d > 0; d >>= 1) {
+        __syncthreads();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            block_data[bi] += block_data[ai];
+        }
+
+        os *= 2;
+    }
+
+    if (thid == 0) { 
+        // result.block_sum = block_data[blockDim.x - 1];
+        block_data[blockDim.x - 1] = 0; // Clear the last element
+    }
+
+    for (int d = 1; d < blockDim.x; d *= 2) {
+
+        os /= 2;
+
+        __syncthreads();
+        if (thid < d) {
+            int ai = os * (2 * thid+1) - 1;
+            int bi = os * (2 * thid+2) - 1;
+            int t = block_data[ai];
+
+            block_data[ai] = block_data[bi];
+            block_data[bi] += t;
+        }
+    }
+
+    __syncthreads();
+    
+    result.offset = block_data[thid];
+    // if (thid == blockDim.x - 1) {
+    result.total = block_data[blockDim.x - 1];
+    // }
+
+    // if (thid == 0) 
+    // {
+    //     printf("%d \n", block_data[thid]);
+    // }
+
+    return result;
 }
 
  __device__ void block_gather(const int* const column_index, int* const distance, 
@@ -113,7 +172,7 @@ void init_distance_kernel(int *device_distance, int size)
                                 int* const out_queue_count,int r, int r_end)
 {
 	volatile __shared__ int comm[3];
-    int orig_row_start = r;
+    // int orig_row_start = r;
 	while(__syncthreads_or(r < r_end))
 	{
 		// Vie for control of block.
@@ -171,7 +230,9 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
                             int iteration, int *device_out_queue, int *device_out_queue_size, const int node)
 {
     // get scatter offset and total with prefix sum
+    
     prescan_result rank = block_prefix_sum(row_offset_end-row_offset_start);
+    // printf("hi");
     // printf("real total %d\n", row_offset_end-row_offset_start);
     // printf("offset %d\n", prescan_offset);
     // printf("total %d\n", prescan_total);
@@ -185,7 +246,7 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
         // printf("start %d\n", row_offset_start);
 
         // All threads pack shared memory
-        int orig_row_start = row_offset_start;
+        // int orig_row_start = row_offset_start;
         while ((rank.offset < cta_progress + BLOCK_SIZE) && (row_offset_start < row_offset_end))
         {
             // add index to shared memory
