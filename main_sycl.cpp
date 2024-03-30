@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n\n";
-    sleep(5);
+    std::cout.flush();
     syclBFS syclBFS(graph, source);
     // std::cout << std::endl;
 
