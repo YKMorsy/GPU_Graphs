@@ -5,7 +5,85 @@ const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 64;
 const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
-void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
+syclBFS::syclBFS(csr &graph, int source)
+{
+    graph_num_nodes = graph.num_nodes;
+    graph_num_edges = graph.num_edges;
+
+    // initialize queue and sizes
+    init_queue(graph);
+
+    // initialize distance with -1 on host
+    init_distance(graph);
+
+    // initialize device graph variables
+    init_graph_for_device(graph);
+
+    // start with source (update distance and queue)
+    host_distance[source] = 0;
+    host_queue[0] = source;
+    host_cur_queue_size = host_cur_queue_size + 1;
+
+    // copy host to device queue
+    gpuQueue.memcpy(device_in_queue, host_queue, graph_num_nodes * sizeof(int)).wait();
+    *device_out_queue_size = host_cur_queue_size;
+
+    int iteration = 0;
+
+    int num_blocks;
+    
+    // loop until frontier is empty
+    while (host_cur_queue_size > 0)
+    {
+        *device_out_queue_size = 0;
+
+        num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
+
+        gpuQueue.submit([](cl::sycl::handler &cgh) 
+        {
+            int *device_col_idx_c = device_col_idx;
+            int *device_row_offset_c =  device_row_offset;
+            int num_nodes_c =  graph_num_nodes;
+            int *device_in_queue_c =  device_in_queue;
+            int device_in_queue_size_c =  host_cur_queue_size;
+            int *device_out_queue_size_c =  device_out_queue_size;
+            int *device_distance_c = device_distance;
+            int iteration_c = iteration;
+            int *device_out_queue_c = device_out_queue;
+
+            sycl::local_accessor<int, 1> comm(sycl::range<1>(3), cgh);
+            sycl::local_accessor<int, 1> base_offset(sycl::range<1>(1), cgh);
+            sycl::local_accessor<int, 1> sums(sycl::range<1>(BLOCK_SIZE), cgh);
+
+            cgh.parallel_for
+            (
+                cl::sycl::nd_range<1>(num_blocks*max_group_size, max_group_size),
+                [=] (cl::sycl::nd_item<1> item) 
+                {
+                    expand_contract_kernel(
+                        device_col_idx_c, device_row_offset_c,
+                        num_nodes_c, device_in_queue_c,
+                        device_in_queue_size_c, device_out_queue_size_c,
+                        device_distance_c, iteration_c,
+                        device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
+                        base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
+                }
+            );
+        }).wait();
+
+        host_cur_queue_size = *device_out_queue_size;
+        std::swap(device_in_queue, device_out_queue);
+
+        iteration++;
+    }
+
+    // copy device distance to host
+    gpuQueue.memcpy(host_distance, device_distance, graph_num_nodes * sizeof(int)).wait();
+
+    host_distance[source] = 0;
+}
+
+void syclBFS::expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
                             int num_nodes, int *device_in_queue, 
                             int device_in_queue_size, int *device_out_queue_size, 
                             int *device_distance, int iteration, int *device_out_queue,
@@ -33,7 +111,7 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
     while((sycl::any_of_group(item.get_group(), th_id < device_in_queue_size)));
 }
 
-void block_gather(int* column_index, int* distance, 
+void syclBFS::block_gather(int* column_index, int* distance, 
                            int iteration, int * out_queue, 
                            int* out_queue_count, int r, int r_end, 
                            cl::sycl::nd_item<1> &item, int *comm,
@@ -100,7 +178,7 @@ void block_gather(int* column_index, int* distance,
 	}
 }
 
-void fine_gather(int *device_col_idx, int row_offset_start, 
+void syclBFS::fine_gather(int *device_col_idx, int row_offset_start, 
                         int row_offset_end, int *device_distance, 
                         int iteration, int *device_out_queue, 
                         int *device_out_queue_size, const int node,
@@ -172,7 +250,7 @@ void fine_gather(int *device_col_idx, int row_offset_start,
 
 }
 
-prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
+prescan_result syclBFS::block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
 {
 
     prescan_result result;
@@ -223,7 +301,8 @@ prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
     return result;
 }
 
-void init_queue(csr &graph)
+
+void syclBFS::init_queue(csr &graph)
 {
     // allocate host memory
     host_queue = (int *)malloc(graph_num_nodes * sizeof(int));
@@ -236,7 +315,7 @@ void init_queue(csr &graph)
     device_out_queue_size = 0;
 }
 
-void init_distance(csr &graph)
+void syclBFS::init_distance(csr &graph)
 {
     host_distance = (int *)(malloc(graph_num_nodes * sizeof(int)));
     device_distance = cl::sycl::malloc_device<int>(graph_num_nodes, gpuQueue);
@@ -266,7 +345,7 @@ void init_distance(csr &graph)
     gpuQueue.memcpy(host_distance, device_distance, graph_num_nodes * sizeof(int)).wait();
 }
 
-void init_graph_for_device(csr &graph)
+void syclBFS::init_graph_for_device(csr &graph)
 {
     device_col_idx = cl::sycl::malloc_device<int>(graph_num_edges, gpuQueue);
     device_row_offset = cl::sycl::malloc_device<int>((graph_num_nodes+1), gpuQueue);
@@ -274,86 +353,6 @@ void init_graph_for_device(csr &graph)
     gpuQueue.memcpy(device_col_idx, graph.col_idx, graph_num_edges * sizeof(int)).wait();
     gpuQueue.memcpy(device_row_offset, graph.row_offset, (graph_num_nodes+1) * sizeof(int)).wait();
 }
-
-syclBFS::syclBFS(csr &graph, int source)
-{
-    graph_num_nodes = graph.num_nodes;
-    graph_num_edges = graph.num_edges;
-
-    // initialize queue and sizes
-    init_queue(graph);
-
-    // initialize distance with -1 on host
-    init_distance(graph);
-
-    // initialize device graph variables
-    init_graph_for_device(graph);
-
-    // start with source (update distance and queue)
-    host_distance[source] = 0;
-    host_queue[0] = source;
-    host_cur_queue_size = host_cur_queue_size + 1;
-
-    // copy host to device queue
-    gpuQueue.memcpy(device_in_queue, host_queue, graph_num_nodes * sizeof(int)).wait();
-    *device_out_queue_size = host_cur_queue_size;
-
-    int iteration = 0;
-
-    int num_blocks;
-    
-    // loop until frontier is empty
-    while (host_cur_queue_size > 0)
-    {
-        *device_out_queue_size = 0;
-
-        num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
-
-        gpuQueue.submit([&](cl::sycl::handler &cgh) 
-        {
-            int *device_col_idx_c = device_col_idx;
-            int *device_row_offset_c =  device_row_offset;
-            int num_nodes_c =  graph_num_nodes;
-            int *device_in_queue_c =  device_in_queue;
-            int device_in_queue_size_c =  host_cur_queue_size;
-            int *device_out_queue_size_c =  device_out_queue_size;
-            int *device_distance_c = device_distance;
-            int iteration_c = iteration;
-            int *device_out_queue_c = device_out_queue;
-
-            sycl::local_accessor<int, 1> comm(sycl::range<1>(3), cgh);
-            sycl::local_accessor<int, 1> base_offset(sycl::range<1>(1), cgh);
-            sycl::local_accessor<int, 1> sums(sycl::range<1>(BLOCK_SIZE), cgh);
-
-            cgh.parallel_for
-            (
-                cl::sycl::nd_range<1>(num_blocks*max_group_size, max_group_size),
-                [=] (cl::sycl::nd_item<1> item) 
-                {
-                    expand_contract_kernel(
-                        device_col_idx_c, device_row_offset_c,
-                        num_nodes_c, device_in_queue_c,
-                        device_in_queue_size_c, device_out_queue_size_c,
-                        device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get_multi_ptr<sycl::access::decorated::no>(),
-                        base_offset.get_multi_ptr<sycl::access::decorated::no>(), sums.get_multi_ptr<sycl::access::decorated::no>());
-                }
-            );
-        }).wait();
-
-        host_cur_queue_size = *device_out_queue_size;
-        std::swap(device_in_queue, device_out_queue);
-
-        iteration++;
-    }
-
-    // copy device distance to host
-    gpuQueue.memcpy(host_distance, device_distance, graph_num_nodes * sizeof(int)).wait();
-
-    host_distance[source] = 0;
-}
-
-
 
 syclBFS::~syclBFS()
 {
