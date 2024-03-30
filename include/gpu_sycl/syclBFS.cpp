@@ -258,6 +258,8 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
+        std::cout << "before\n";
+
         gpuQueue.submit([&](cl::sycl::handler &cgh) {
             int *device_col_idx_c = device_col_idx;
             int *device_row_offset_c = device_row_offset;
@@ -287,6 +289,8 @@ syclBFS::syclBFS(csr &graph, int source)
             );
         }).wait();
 
+
+        std::cout << "after\n";
 
         host_cur_queue_size = *device_out_queue_size;
         std::swap(device_in_queue, device_out_queue);
