@@ -1,6 +1,7 @@
 #include "include/csr/csr.h"
 #include "include/cpu/cpuBFS.h"
 #include "include/gpu_sycl/syclBFS.h"
+#include<unistd.h>
 
 int main(int argc, char* argv[]) 
 {
@@ -39,6 +40,7 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
 
     std::cout << "\nRunning SYCL BFS\n\n";
+    sleep(5);
     syclBFS syclBFS(graph, source);
     // std::cout << std::endl;
 
