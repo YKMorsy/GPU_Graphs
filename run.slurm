@@ -9,4 +9,5 @@ module purge
 module load intel-compilers/2023.2.1
 
 make run ARGS="graphs/tree.txt 0"
+make run ARGS="graphs/wiki-Vote.txt 2"
 make run ARGS="graphs/europe_osm.txt 47837212"
