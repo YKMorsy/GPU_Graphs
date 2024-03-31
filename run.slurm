@@ -8,4 +8,4 @@
 module purge
 module load intel-compilers/2023.2.1
 
-make run ARGS="graphs/europe_osm.txt 47837212"
+make run ARGS="graphs/tree.txt 0"
