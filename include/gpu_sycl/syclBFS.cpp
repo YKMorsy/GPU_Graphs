@@ -334,6 +334,9 @@ syclBFS::syclBFS(csr &graph, int source)
         std::swap(device_in_queue, device_out_queue);
 
         iteration++;
+
+        std::cout << "swapped\n";
+        std::cout.flush();
     }
 
     std::cout << "finsished device\n";
