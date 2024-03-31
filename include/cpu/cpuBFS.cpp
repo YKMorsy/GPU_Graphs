@@ -6,7 +6,7 @@ cpuBFS::cpuBFS(csr &graph, int source)
     cpu_start = clock();
     std::queue<int> frontier;
 
-    std::cout << "starting cpu bfs\n";
+    // std::cout << "starting cpu bfs\n";
 
     distance.reserve(graph.num_nodes);
     for (int i = 0; i < graph.num_nodes; i++)
@@ -19,7 +19,7 @@ cpuBFS::cpuBFS(csr &graph, int source)
     frontier.push(source);
     distance[source] = 0;
 
-    std::cout << "starting cpu iterations\n";
+    // std::cout << "starting cpu iterations\n";
 
 
     // loop until node queue is empty
@@ -56,7 +56,7 @@ cpuBFS::cpuBFS(csr &graph, int source)
 
     exec_time = (((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC) * 1000;
 
-    std::cout << "finished cpu bfs\n";
+    // std::cout << "finished cpu bfs\n";
 
         
 }
