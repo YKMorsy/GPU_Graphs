@@ -3,6 +3,7 @@
 #SBATCH --job-name=sycl_BFS      
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:pvc:1
+#SBATCH --mem-per-cpu=16G
 #SBATCH --partition=pvc
 
 module purge
