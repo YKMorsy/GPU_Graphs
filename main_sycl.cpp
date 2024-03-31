@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Distance vector: " << std::endl;
     for (int i = 0; i < graph.num_nodes; i++) {
-        std::cout << syclBFS.distance[i] << " | ";
+        std::cout << syclBFS.host_distance[i] << " | ";
     }
     std::cout << std::endl;
 

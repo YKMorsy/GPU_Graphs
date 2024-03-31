@@ -424,4 +424,5 @@ syclBFS::~syclBFS()
     cl::sycl::free(device_out_queue, gpuQueue);
     cl::sycl::free(device_col_idx, gpuQueue);
     cl::sycl::free(device_row_offset, gpuQueue);
+    cl::sycl::free(device_out_queue_size, gpuQueue);
 }
