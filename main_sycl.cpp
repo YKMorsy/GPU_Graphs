@@ -44,6 +44,12 @@ int main(int argc, char* argv[])
     syclBFS syclBFS(graph, source);
     // std::cout << std::endl;
 
+    std::cout << "Distance vector: " << std::endl;
+    for (int i = 0; i < graph.num_nodes; i++) {
+        std::cout << syclBFS.distance[i] << " | ";
+    }
+    std::cout << std::endl;
+
     for (int i = 0; i < graph.num_nodes; i++) 
     {
         if (syclBFS.host_distance[i] != cpuBFS.distance[i])
