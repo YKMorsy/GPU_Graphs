@@ -330,8 +330,13 @@ syclBFS::syclBFS(csr &graph, int source)
         std::cout << "after\n";
         std::cout.flush();
 
-        host_cur_queue_size = *device_out_queue_size;
-        std::swap(device_in_queue, device_out_queue);
+        // host_cur_queue_size = *device_out_queue_size;
+        gpuQueue.memcpy(&host_cur_queue_size, device_out_queue_size, sizeof(int)).wait();
+        // std::swap(device_in_queue, device_out_queue);
+        
+        int* temp = device_in_queue;
+        device_in_queue = device_out_queue;
+        device_out_queue = temp;
 
         iteration++;
 
