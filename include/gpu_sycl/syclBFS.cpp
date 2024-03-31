@@ -323,8 +323,8 @@ syclBFS::syclBFS(csr &graph, int source)
                         num_nodes_c, device_in_queue_c,
                         device_in_queue_size_c, device_out_queue_size_c,
                         device_distance_c, iteration_c,
-                        device_out_queue_c, item, comm.get(),
-                        base_offset.get(), sums.get());
+                        device_out_queue_c, item, comm,
+                        base_offset, sums);
                 }
             );
         }).wait();
