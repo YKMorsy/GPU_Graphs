@@ -336,10 +336,16 @@ syclBFS::syclBFS(csr &graph, int source)
         iteration++;
     }
 
+    std::cout << "finsished device\n";
+    std::cout.flush();
+
     // copy device distance to host
     gpuQueue.memcpy(host_distance, device_distance, graph_num_nodes * sizeof(int)).wait();
 
     host_distance[source] = 0;
+
+    std::cout << "finished host\n";
+    std::cout.flush();
 }
 
 
