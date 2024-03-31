@@ -65,8 +65,8 @@ prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
 void block_gather(int* column_index, int* distance, 
                            int iteration, int * out_queue, 
                            int* out_queue_count, int r, int r_end, 
-                           cl::sycl::nd_item<1> &item, int *comm,
-                           int *base_offset, int *sums)
+                           cl::sycl::nd_item<1> &item, cl::sycl::local_accessor<int, 1> comm,
+                           cl::sycl::local_accessor<int, 1> base_offset, cl::sycl::local_accessor<int, 1> sums)
 {
     int orig_row_start = r;
     item.barrier();
@@ -133,8 +133,8 @@ void fine_gather(int *device_col_idx, int row_offset_start,
                         int row_offset_end, int *device_distance, 
                         int iteration, int *device_out_queue, 
                         int *device_out_queue_size, const int node,
-                        cl::sycl::nd_item<1> &item, int *comm,
-                        int *base_offset, int *sums)
+                        cl::sycl::nd_item<1> &item, cl::sycl::local_accessor<int, 1> comm,
+                        cl::sycl::local_accessor<int, 1> base_offset, cl::sycl::local_accessor<int, 1> sums)
 {
     prescan_result rank = block_prefix_sum(row_offset_end-row_offset_start, item, sums);
 
@@ -206,7 +206,8 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
                             int num_nodes, int *device_in_queue, 
                             int device_in_queue_size, int *device_out_queue_size, 
                             int *device_distance, int iteration, int *device_out_queue,
-                            cl::sycl::nd_item<1> &item, int *comm, int *base_offset, int *sums)
+                            cl::sycl::nd_item<1> &item, cl::sycl::local_accessor<int, 1> comm, 
+                            cl::sycl::local_accessor<int, 1> base_offset, cl::sycl::local_accessor<int, 1> sums)
 {
     int th_id = item.get_group(0) * item.get_local_range(0) + item.get_local_id(0); // block_id*num_threads_in_block + thread_id
     // loop to process all threads and synchronize threads within a block
