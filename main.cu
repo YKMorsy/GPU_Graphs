@@ -55,12 +55,17 @@ int main(int argc, char* argv[])
 
     for (int i = 0; i < graph.num_nodes; i++) 
     {
+        // if (gpuBFS.host_distance[i] != -1)
+        // {
+        //     std::cout << "g";
+        // }
+
         if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
         {
             std::cout << "mismatch at node " << i+1 << std::endl;
             std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
             std::cout << "gpu: " << gpuBFS.host_distance[i] << std::endl;
-            break;
+            // break;
         }
         
     }
