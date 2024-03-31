@@ -3,9 +3,7 @@
 
 #include <iostream>
 #include <CL/sycl.hpp>
-// #include <atomic.hpp>
-// #include <dpct/dpct.hpp>
-// #include <syclcompat/syclcompat.hpp>
+#include <time.h>
 #include "../csr/csr.h"
 
 

@@ -232,59 +232,62 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
 
 syclBFS::syclBFS(csr &graph, int source)
 {
-    std::cout << "variable init\n";
-    std::cout.flush();
+    // std::cout << "variable init\n";
+    // std::cout.flush();
     graph_num_nodes = graph.num_nodes;
     graph_num_edges = graph.num_edges;
 
-    std::cout << "graph vars\n";
-    std::cout.flush();
+    // std::cout << "graph vars\n";
+    // std::cout.flush();
 
     // initialize queue and sizes
     init_queue(graph);
 
-    std::cout << "queue inited\n";
-    std::cout.flush();
+    // std::cout << "queue inited\n";
+    // std::cout.flush();
 
     // initialize distance with -1 on host
     init_distance(graph);
 
-    std::cout << "distance inited\n";
-    std::cout.flush();
+    // std::cout << "distance inited\n";
+    // std::cout.flush();
 
     // initialize device graph variables
     init_graph_for_device(graph);
 
-    std::cout << "graph inited\n";
-    std::cout.flush();
+    // std::cout << "graph inited\n";
+    // std::cout.flush();
 
     // start with source (update distance and queue)
     host_distance[source] = 0;
     host_queue[0] = source;
     host_cur_queue_size = host_cur_queue_size + 1;
 
-    std::cout << "host vars initied\n";
-    std::cout.flush();
+    // std::cout << "host vars initied\n";
+    // std::cout.flush();
 
     // copy host to device queue
     gpuQueue.memcpy(device_in_queue, host_queue, graph_num_nodes * sizeof(int)).wait();
     
-    std::cout << "device in queue initied\n";
-    std::cout.flush();
+    // std::cout << "device in queue initied\n";
+    // std::cout.flush();
 
     gpuQueue.memcpy(device_out_queue_size, &host_cur_queue_size, sizeof(int)).wait();
 
     // *device_out_queue_size = host_cur_queue_size;
 
-    std::cout << "device size initied\n";
-    std::cout.flush();
+    // std::cout << "device size initied\n";
+    // std::cout.flush();
 
     int iteration = 0;
 
     int num_blocks;
 
-    std::cout << "starting iterations\n";
-    std::cout.flush();
+    clock_t cpu_start, cpu_end;
+    cpu_start = clock();
+
+    // std::cout << "starting iterations\n";
+    // std::cout.flush();
     
     // loop until frontier is empty
     while (host_cur_queue_size > 0)
@@ -294,8 +297,8 @@ syclBFS::syclBFS(csr &graph, int source)
 
         num_blocks = (host_cur_queue_size % BLOCK_SIZE == 0)?(host_cur_queue_size/BLOCK_SIZE):(host_cur_queue_size/BLOCK_SIZE+1);
 
-        std::cout << "before\n";
-        std::cout.flush();
+        // std::cout << "before\n";
+        // std::cout.flush();
 
         gpuQueue.submit([&](cl::sycl::handler &cgh) {
             int *device_col_idx_c = device_col_idx;
@@ -327,15 +330,15 @@ syclBFS::syclBFS(csr &graph, int source)
         }).wait();
 
 
-        std::cout << "after\n";
-        std::cout.flush();
+        // std::cout << "after\n";
+        // std::cout.flush();
 
         // host_cur_queue_size = *device_out_queue_size;
         gpuQueue.memcpy(&host_cur_queue_size, device_out_queue_size, sizeof(int)).wait();
         // std::swap(device_in_queue, device_out_queue);
         
-        std::cout << "swapped 1\n";
-        std::cout.flush();
+        // std::cout << "swapped 1\n";
+        // std::cout.flush();
 
         int* temp = device_in_queue;
         device_in_queue = device_out_queue;
@@ -343,20 +346,24 @@ syclBFS::syclBFS(csr &graph, int source)
 
         iteration++;
 
-        std::cout << "swapped 2\n";
-        std::cout.flush();
+        // std::cout << "swapped 2\n";
+        // std::cout.flush();
     }
 
-    std::cout << "finsished device\n";
-    std::cout.flush();
+    // std::cout << "finsished device\n";
+    // std::cout.flush();
 
     // copy device distance to host
     gpuQueue.memcpy(host_distance, device_distance, graph_num_nodes * sizeof(int)).wait();
 
     host_distance[source] = 0;
 
-    std::cout << "finished host\n";
-    std::cout.flush();
+    cpu_end = clock();
+
+    exec_time = (((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC) * 1000;
+
+    // std::cout << "finished host\n";
+    // std::cout.flush();
 }
 
 

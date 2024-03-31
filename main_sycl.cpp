@@ -1,7 +1,6 @@
 #include "include/csr/csr.h"
 #include "include/cpu/cpuBFS.h"
 #include "include/gpu_sycl/syclBFS.h"
-#include<unistd.h>
 
 int main(int argc, char* argv[]) 
 {
@@ -33,22 +32,22 @@ int main(int argc, char* argv[])
 
     std::cout << "\nRunning CPU BFS\n\n";
     cpuBFS cpuBFS(graph, source);
-    std::cout << "Distance vector: " << std::endl;
-    for (int i = 0; i < graph.num_nodes; i++) {
-        std::cout << cpuBFS.distance[i] << " | ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "\nRunning SYCL BFS\n\n";
-    std::cout.flush();
-    syclBFS syclBFS(graph, source);
+    // std::cout << "Distance vector: " << std::endl;
+    // for (int i = 0; i < graph.num_nodes; i++) {
+    //     std::cout << cpuBFS.distance[i] << " | ";
+    // }
     // std::cout << std::endl;
 
-    std::cout << "Distance vector: " << std::endl;
-    for (int i = 0; i < graph.num_nodes; i++) {
-        std::cout << syclBFS.host_distance[i] << " | ";
-    }
-    std::cout << std::endl;
+    std::cout << "\nRunning SYCL BFS\n\n";
+    syclBFS syclBFS(graph, source);
+    // std::cout << "Distance vector: " << std::endl;
+    // for (int i = 0; i < graph.num_nodes; i++) {
+    //     std::cout << syclBFS.host_distance[i] << " | ";
+    // }
+    // std::cout << std::endl;
+
+    std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
+    std::cout << "GPU BFS Time: " << syclBFS.exec_time << " ms" << std::endl;
 
     for (int i = 0; i < graph.num_nodes; i++) 
     {
