@@ -1,7 +1,7 @@
 # Compiler
 CC = g++
 NVCC = nvcc
-DPCPP = dpcpp
+DPCPP = icpx -fsycl
 
 # Source files
 SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu_sycl/syclBFS.cpp main_sycl.cpp
