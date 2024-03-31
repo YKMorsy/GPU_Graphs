@@ -11,7 +11,7 @@ struct prescan_result
     int total;
 };
 
-prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, int *sums)
+prescan_result block_prefix_sum(int val, cl::sycl::nd_item<1> &item, cl::sycl::local_accessor<int, 1> sums)
 {
 
     prescan_result result;
