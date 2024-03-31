@@ -2,7 +2,7 @@
 
 const int HASH_RANGE = 128;
 const int WARP_SIZE = 32;
-const int BLOCK_SIZE = 32;
+const int BLOCK_SIZE = 512;
 const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
 int div_up(int dividend, int divisor)
