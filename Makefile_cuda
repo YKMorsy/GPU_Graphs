@@ -1,0 +1,42 @@
+# Compiler
+CC = gcc
+NVCC = nvcc
+
+# Flags
+NVCCFLAGS = -gencode arch=compute_35,code=[compute_35,sm_35] \
+            -gencode arch=compute_61,code=[compute_61,sm_61] \
+            -gencode arch=compute_70,code=[compute_70,sm_70]
+
+# Source files
+SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/gpu/gpuBFS.cu main.cu
+
+# Object files (substitute .cpp and .cu with .o)
+OBJS = $(filter %.o, $(SRCS:.cpp=.o) $(SRCS:.cu=.o))
+
+# Executable name
+EXEC = graphBFS
+
+# Default rule
+all: $(EXEC)
+
+# Rule to build executable
+$(EXEC): $(OBJS)
+	@$(NVCC) $(NVCCFLAGS) $(OBJS) -o $(EXEC)
+
+# Rule to compile source files (.cpp)
+%.o: %.cpp
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# Rule to compile CUDA source files (.cu)
+%.o: %.cu
+	@$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+# Clean rule
+clean:
+	@rm -f $(OBJS) $(EXEC)
+
+# Rule to run the program with input
+run: $(EXEC)
+	@./$(EXEC) $(ARGS)
+
+.PHONY: all clean run
