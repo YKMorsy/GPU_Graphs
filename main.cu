@@ -53,6 +53,8 @@ int main(int argc, char* argv[])
     // double gpu_time = (end_gpu - start_gpu) / (double)CLOCKS_PER_SEC;
     std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
+    std::cout << "GPU BFS Depth: " << gpuBFS.iteration << std::endl;
+
     for (int i = 0; i < graph.num_nodes; i++) 
     {
         // if (gpuBFS.host_distance[i] != -1)

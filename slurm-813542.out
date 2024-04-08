@@ -1,0 +1,9 @@
+Warning: When compiling code please add the following flags to nvcc:
+         -gencode arch=compute_35,code=[compute_35,sm_35] \
+         -gencode arch=compute_61,code=[compute_61,sm_61] 
+         -gencode arch=compute_70,code=[compute_70,sm_70] 
+Column indices: 45030389
+Row offset: 3566907
+
+Running CPU BFS
+

@@ -7,7 +7,7 @@ const int WARPS = BLOCK_SIZE/WARP_SIZE;
 
 int div_up(int dividend, int divisor)
 {
-	return (dividend % divisor == 0)?(dividend/divisor):(dividend/divisor+1);
+	return (dividend % divisor == 0)?(dividend/divisor):((dividend/divisor)+1);
 }
 
 
@@ -52,61 +52,6 @@ void init_distance_kernel(int *device_distance, int size)
 	return v;
 }
 
-//  __device__ prescan_result block_prefix_sum(const int val)
-// {    
-// 	volatile __shared__ int sums[WARPS];
-// 	int value = val;
-
-// 	const int lane_id = threadIdx.x % WARP_SIZE;
-// 	const int warp_id = threadIdx.x / WARP_SIZE;
-
-// 	// Warp-wide prefix sums.
-// #pragma unroll
-// 	for(int i = 1; i <= WARP_SIZE; i <<= 1)
-// 	{
-// 		const int n = __shfl_up_sync(0xffffffff, value, i, WARP_SIZE);
-// 		if (lane_id >= i)
-// 			value += n;
-// 	}
-
-// 	// Write warp total to shared array.
-// 	if (lane_id == WARP_SIZE - 1)
-// 	{
-// 		sums[warp_id] = value;
-// 	}
-
-// 	__syncthreads();
-
-// 	// Prefix sum of warp sums.
-// 	if (warp_id == 0 && lane_id < WARPS)
-// 	{
-// 		int warp_sum = sums[lane_id];
-// 		const unsigned int mask = (1 << (WARPS)) - 1;
-// #pragma unroll
-// 		for (int i = 1; i <= WARPS; i <<= 1)
-// 		{
-// 			const int n = __shfl_up_sync(mask, warp_sum, i, WARPS);
-// 			if (lane_id >= i)
-// 				warp_sum += n;
-// 		}
-
-// 		sums[lane_id] = warp_sum;
-// 	}
-
-// 	__syncthreads();
-
-// 	// Add total sum of previous WARPS to current element.
-// 	if (warp_id > 0)
-// 	{
-// 		const int block_sum = sums[warp_id-1];
-// 		value += block_sum;
-// 	}
-
-// 	prescan_result result;
-// 	result.offset = value - val;
-// 	result.total = sums[WARPS-1];
-// 	return result; 
-// }
 
 __device__ prescan_result block_prefix_sum(const int val) {
     __shared__ int block_data[BLOCK_SIZE]; // Assuming maximum block size of 1024 threads
@@ -155,14 +100,7 @@ __device__ prescan_result block_prefix_sum(const int val) {
     __syncthreads();
     
     result.offset = block_data[thid];
-    // if (thid == blockDim.x - 1) {
     result.total = block_data[blockDim.x - 1];
-    // }
-
-    // if (thid == 0) 
-    // {
-    //     printf("%d \n", block_data[thid]);
-    // }
 
     return result;
 }
@@ -188,46 +126,80 @@ __device__ prescan_result block_prefix_sum(const int val) {
 		}
 		__syncthreads();
 		int r_gather = comm[1] + threadIdx.x;
-		const int r_gather_end = comm[2];
+		int r_gather_end = comm[2];
 		const int total = comm[2] - comm[1];
-		int block_progress = 0;
-		while((total - block_progress) > 0)
-		{
-			int neighbor = -1;
-			int valid = 0;
-			if (r_gather < r_gather_end)
-			{
-				neighbor = column_index[r_gather];
-				// Look up status of current neighbor.
-				if ((distance[neighbor] == -1))
-                {
-                    valid = 1;
-					// Update label.
-					distance[neighbor] = iteration + 1;
-				}
-			}
-			// Obtain offset in queue by computing prefix sum
-			const prescan_result prescan = block_prefix_sum(valid);
-			volatile __shared__ int base_offset[1];
 
-			// Obtain base enqueue offset and share it to whole block.
-			if(threadIdx.x == 0)
+        while(r_gather < r_gather_end)
+        {
+            int valid = 0;
+            int neighbor = column_index[r_gather];
+            if ((distance[neighbor] == -1))
             {
-				// base_offset[0] = atomicAdd(out_queue_count,prescan.total);
-                int old_value = *out_queue_count;
-                *out_queue_count += prescan.total;
-                base_offset[0] = old_value;
-                // base_offset[0] = *out_queue_count+prescan.total;
+                valid = 1;
+                distance[neighbor] = iteration + 1;
             }
-			__syncthreads();
-			// Write vertex to the out queue.
-			if (valid == 1)
-				out_queue[base_offset[0]+prescan.offset] = neighbor;
 
-			r_gather += BLOCK_SIZE;
-			block_progress+= BLOCK_SIZE;
-			__syncthreads();
-		}
+            __syncthreads();
+
+            const prescan_result prescan = block_prefix_sum(valid);
+            volatile __shared__ int base_offset[1];
+            if(threadIdx.x == 0)
+            {
+                base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+            }
+            __syncthreads();
+
+            const int queue_index = base_offset[0] + prescan.offset;
+
+            if (valid == 1)
+            {
+                out_queue[queue_index] = neighbor;
+            }
+
+            r_gather += BLOCK_SIZE;
+        }
+
+
+
+		// int block_progress = 0;
+		// while((total - block_progress) > 0)
+		// {
+		// 	int neighbor = -1;
+		// 	int valid = 0;
+		// 	if (r_gather < r_gather_end)
+		// 	{
+		// 		neighbor = column_index[r_gather];
+		// 		// Look up status of current neighbor.
+		// 		if ((distance[neighbor] == -1))
+        //         {
+        //             valid = 1;
+		// 			// Update label.
+		// 			distance[neighbor] = iteration + 1;
+		// 		}
+		// 	}
+        //     __syncthreads();
+		// 	// Obtain offset in queue by computing prefix sum
+		// 	const prescan_result prescan = block_prefix_sum(valid);
+		// 	volatile __shared__ int base_offset[1];
+
+		// 	// Obtain base enqueue offset and share it to whole block.
+		// 	if(threadIdx.x == 0)
+        //     {
+		// 		base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+        //         // int old_value = *out_queue_count;
+        //         // *out_queue_count += prescan.total;
+        //         // base_offset[0] = old_value;
+        //         // // base_offset[0] = *out_queue_count+prescan.total;
+        //     }
+		// 	__syncthreads();
+		// 	// Write vertex to the out queue.
+		// 	if (valid == 1)
+		// 		out_queue[base_offset[0]+prescan.offset] = neighbor;
+
+		// 	r_gather += BLOCK_SIZE;
+		// 	block_progress+= BLOCK_SIZE;
+		// 	__syncthreads();
+		// }
 	}
 }
 
@@ -332,23 +304,17 @@ void expand_contract_kernel(int *device_col_idx, int *device_row_offset,
 
         //warp culling and history culling
         volatile __shared__ int scratch[WARPS][HASH_RANGE];
-		cur_node = warp_cull(scratch, cur_node);
+		// cur_node = warp_cull(scratch, cur_node);
 
         int row_offset_start = cur_node < 0 ? 0 : device_row_offset[cur_node];
         int row_offset_end = cur_node < 0 ? 0 : device_row_offset[cur_node+1];
 
         const bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
-        // if (cur_node == 31)
-        // {
-        //     printf("%d\n", (row_offset_end - row_offset_start) >= BLOCK_SIZE);
-        // }
-        
         block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start);
         fine_gather(device_col_idx, row_offset_start,  big_list ? row_offset_start : row_offset_end, device_distance, iteration, device_out_queue, device_out_queue_size, cur_node);
-        // fine_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_start : row_offset_end);
 
-        // iterate th_id to make sure entire queue is processed
+        // iterate th_id to make sure entire queue is processed and while loop is exited
         th_id += gridDim.x*blockDim.x;
         
     }
@@ -379,7 +345,7 @@ gpuBFS::gpuBFS(csr &graph, int source)
     cudaMemcpy(device_in_queue, host_queue, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_out_queue_size, host_cur_queue_size, sizeof(int), cudaMemcpyHostToDevice);
 
-    int iteration = 0;
+    iteration = 0;
 
     cudaEvent_t gpu_start, gpu_end;
     cudaEventCreate(&gpu_start);
@@ -393,6 +359,9 @@ gpuBFS::gpuBFS(csr &graph, int source)
         cudaMemset(device_out_queue_size,0,sizeof(int));
         
         const int num_of_blocks = div_up(*host_cur_queue_size, BLOCK_SIZE);
+
+        std::cout << iteration << std::endl;
+        // std::cout << num_of_blocks << std::endl;
 
         expand_contract_kernel<<<num_of_blocks, BLOCK_SIZE>>>(device_col_idx, device_row_offset, 
                                                 graph.num_nodes, device_in_queue, 

@@ -18,6 +18,7 @@ class gpuBFS
         
         int *host_distance;
         float exec_time;
+        int iteration;
     private:
 
         void init_distance(csr &graph);
