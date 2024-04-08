@@ -25,16 +25,21 @@ class gpuBFS
         void init_queue(csr &graph);
         void init_graph_for_device(csr &graph);
 
+        int *d_degrees_total;
+
         int *host_queue;
-        int *host_cur_queue_size;
+        
+        int *d_distance;
+        int *d_in_q;
+        // int *d_out_q_size;
+        int *d_out_q;
 
-        int *device_distance;
-        int *device_in_queue;
-        int *device_out_queue_size;
-        int *device_out_queue;
+        // int *d_edges_size;
+        int *d_parent;
+        int *d_degrees;
 
-        int *device_col_idx;
-        int *device_row_offset;
+        int *d_col_idx;
+        int *d_row_offset;
 };
 
 #endif

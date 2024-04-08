@@ -21,6 +21,8 @@ cpuBFS::cpuBFS(csr &graph, int source)
 
     // std::cout << "starting cpu iterations\n";
 
+    iteration = 0;
+
 
     // loop until node queue is empty
     while(!frontier.empty())
@@ -50,6 +52,8 @@ cpuBFS::cpuBFS(csr &graph, int source)
             }
         }
 
+        iteration++;
+        
     }
 
     cpu_end = clock();

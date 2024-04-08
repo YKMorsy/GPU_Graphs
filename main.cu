@@ -39,38 +39,41 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
 
     std::cout << "\nRunning GPU BFS\n";
+    std::flush;
     gpuBFS gpuBFS(graph, source);
 
-    // std::cout << "Distance vector: " << std::endl;
-    // for (int i = 0; i < graph.num_nodes; i++) {
-    //     std::cout << gpuBFS.host_distance[i] << " | ";
-    // }
-    std::cout << std::endl;
+    // // std::cout << "Distance vector: " << std::endl;
+    // // for (int i = 0; i < graph.num_nodes; i++) {
+    // //     std::cout << gpuBFS.host_distance[i] << " | ";
+    // // }
+    // std::cout << std::endl;
 
-    // double cpu_time = (end_cpu - start_cpu) / (double)CLOCKS_PER_SEC;
-    std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
+    // // double cpu_time = (end_cpu - start_cpu) / (double)CLOCKS_PER_SEC;
+    // std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
-    // double gpu_time = (end_gpu - start_gpu) / (double)CLOCKS_PER_SEC;
-    std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
+    // // double gpu_time = (end_gpu - start_gpu) / (double)CLOCKS_PER_SEC;
+    // std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
-    std::cout << "GPU BFS Depth: " << gpuBFS.iteration << std::endl;
+    // std::cout << "CPU BFS Depth: " << cpuBFS.iteration << std::endl;
 
-    for (int i = 0; i < graph.num_nodes; i++) 
-    {
-        // if (gpuBFS.host_distance[i] != -1)
-        // {
-        //     std::cout << "g";
-        // }
+    // std::cout << "GPU BFS Depth: " << gpuBFS.iteration << std::endl;
 
-        if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
-        {
-            std::cout << "mismatch at node " << i+1 << std::endl;
-            std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
-            std::cout << "gpu: " << gpuBFS.host_distance[i] << std::endl;
-            // break;
-        }
+    // for (int i = 0; i < graph.num_nodes; i++) 
+    // {
+    //     // if (gpuBFS.host_distance[i] != -1)
+    //     // {
+    //     //     std::cout << "g";
+    //     // }
+
+    //     if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
+    //     {
+    //         std::cout << "mismatch at node " << i+1 << std::endl;
+    //         std::cout << "cpu: " << cpuBFS.distance[i] << std::endl;
+    //         std::cout << "gpu: " << gpuBFS.host_distance[i] << std::endl;
+    //         // break;
+    //     }
         
-    }
+    // }
 
     return 0;
 }

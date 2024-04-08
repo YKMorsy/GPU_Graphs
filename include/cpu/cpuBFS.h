@@ -13,6 +13,7 @@ class cpuBFS
         cpuBFS(csr &graph, int source);
         std::vector<int> distance;
         float exec_time;
+        int iteration;
 
 };
 
