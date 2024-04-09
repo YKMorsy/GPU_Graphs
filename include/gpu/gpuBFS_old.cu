@@ -347,6 +347,7 @@ gpuBFS::gpuBFS(csr &graph, int source)
 
     // start with source (update distance and queue)
     host_distance[source] = 0;
+    cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
     *host_cur_queue_size = *host_cur_queue_size + 1;
 
     host_queue[0] = source;
@@ -389,7 +390,7 @@ gpuBFS::gpuBFS(csr &graph, int source)
     // copy device distance to host
     cudaMemcpy(host_distance, device_distance, graph.num_nodes * sizeof(int), cudaMemcpyDeviceToHost);
 
-    host_distance[source] = 0;
+    // host_distance[source] = 0;
 
     cudaEventRecord(gpu_end);
     cudaEventSynchronize(gpu_end);

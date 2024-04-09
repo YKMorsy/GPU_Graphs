@@ -49,10 +49,12 @@ cpuBFS::cpuBFS(csr &graph, int source)
                 frontier.push(neighbor);
                 // update level of added neighbor nodes
                 distance[neighbor] = distance[cur_node] + 1;
+                if ((distance[neighbor]+1) > iteration)
+                {
+                    iteration = distance[neighbor]+1;
+                }
             }
         }
-
-        iteration++;
         
     }
 
