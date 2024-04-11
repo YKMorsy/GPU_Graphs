@@ -1,11 +1,11 @@
 #include "gpuBFS.cuh"
 
-const int HASH_RANGE = 128;
-const int WARP_SIZE = 32;
-const int BLOCK_SIZE = 1024;
-const int WARPS = BLOCK_SIZE/WARP_SIZE;
+const long long int HASH_RANGE = 128;
+const long long int WARP_SIZE = 32;
+const long long int BLOCK_SIZE = 1024;
+const long long int WARPS = BLOCK_SIZE/WARP_SIZE;
 
-int div_up(int dividend, int divisor)
+long long int div_up(long long int dividend, long long int divisor)
 {
 	return (dividend % divisor == 0)?(dividend/divisor):((dividend/divisor)+1);
 }
@@ -13,14 +13,14 @@ int div_up(int dividend, int divisor)
 
 struct prescan_result
 {
-    int offset;
-    int total;
+    long long int offset;
+    long long int total;
 };
 
 __global__
-void init_distance_kernel(int *device_distance, int size)
+void init_distance_kernel(long long int *device_distance, long long int size)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < size)
     {
@@ -28,18 +28,18 @@ void init_distance_kernel(int *device_distance, int size)
     }
 }
 
- __device__ int warp_cull(volatile int scratch[2][HASH_RANGE], const int v)
+ __device__ long long int warp_cull(volatile long long int scratch[2][HASH_RANGE], const long long int v)
 {
-	//unsigned int active = __ballot_sync(FULL_MASK, v >= 0);
+	//unsigned long long int active = __ballot_sync(FULL_MASK, v >= 0);
 	//if( v == -1) return v;
-	const int hash = v & (HASH_RANGE-1);
-	const int warp_id = threadIdx.x / WARP_SIZE;
+	const long long int hash = v & (HASH_RANGE-1);
+	const long long int warp_id = threadIdx.x / WARP_SIZE;
 	if(v >= 0)
 		scratch[warp_id][hash]= v;
 	__syncwarp();
-	const int retrieved = v >= 0 ? scratch[warp_id][hash] : v;
+	const long long int retrieved = v >= 0 ? scratch[warp_id][hash] : v;
 	__syncwarp();
-	unsigned int active = __ballot_sync(0xffffffff, retrieved == v);
+	unsigned long long int active = __ballot_sync(0xffffffff, retrieved == v);
 	if (retrieved == v)
 	{
 		// Vie to be the only thread in warp inspecting vertex v.
@@ -53,24 +53,24 @@ void init_distance_kernel(int *device_distance, int size)
 }
 
 
-__device__ prescan_result block_prefix_sum(const int val) {
-    __shared__ int block_data[BLOCK_SIZE]; // Assuming maximum block size of 1024 threads
+__device__ prescan_result block_prefix_sum(const long long int val) {
+    __shared__ long long int block_data[BLOCK_SIZE]; // Assuming maximum block size of 1024 threads
     prescan_result result;
 
-    int thid = threadIdx.x;
+    long long int thid = threadIdx.x;
     block_data[thid] = val; // Assign value to block_data
     
 
     __syncthreads();
 
-    int os = 1;
+    long long int os = 1;
 
     // Compute prefix sum
-    for (int d = blockDim.x >> 1; d > 0; d >>= 1) {
+    for (long long int d = blockDim.x >> 1; d > 0; d >>= 1) {
         __syncthreads();
         if (thid < d) {
-            int ai = os * (2 * thid+1) - 1;
-            int bi = os * (2 * thid+2) - 1;
+            long long int ai = os * (2 * thid+1) - 1;
+            long long int bi = os * (2 * thid+2) - 1;
             block_data[bi] += block_data[ai];
         }
 
@@ -82,15 +82,15 @@ __device__ prescan_result block_prefix_sum(const int val) {
         block_data[blockDim.x - 1] = 0; // Clear the last element
     }
 
-    for (int d = 1; d < blockDim.x; d *= 2) {
+    for (long long int d = 1; d < blockDim.x; d *= 2) {
 
         os /= 2;
 
         __syncthreads();
         if (thid < d) {
-            int ai = os * (2 * thid+1) - 1;
-            int bi = os * (2 * thid+2) - 1;
-            int t = block_data[ai];
+            long long int ai = os * (2 * thid+1) - 1;
+            long long int bi = os * (2 * thid+2) - 1;
+            long long int t = block_data[ai];
 
             block_data[ai] = block_data[bi];
             block_data[bi] += t;
@@ -105,12 +105,12 @@ __device__ prescan_result block_prefix_sum(const int val) {
     return result;
 }
 
- __device__ void block_gather(const int* const column_index, int* const distance, 
-                                const int iteration, int * const out_queue, 
-                                int* const out_queue_count,int r, int r_end)
+ __device__ void block_gather(const long long int* const column_index, long long int* const distance, 
+                                const long long int iteration, long long int * const out_queue, 
+                                long long int* const out_queue_count,long long int r, long long int r_end)
 {
-	volatile __shared__ int comm[3];
-    // int orig_row_start = r;
+	volatile __shared__ long long int comm[3];
+    // long long int orig_row_start = r;
 	while(__syncthreads_or(r < r_end))
 	{
 		// Vie for control of block.
@@ -125,15 +125,15 @@ __device__ prescan_result block_prefix_sum(const int val) {
 			r = r_end;
 		}
 		__syncthreads();
-		int r_gather = comm[1] + threadIdx.x;
-		int r_gather_end = comm[2];
-		const int total = comm[2] - comm[1];
+		long long int r_gather = comm[1] + threadIdx.x;
+		long long int r_gather_end = comm[2];
+		const long long int total = comm[2] - comm[1];
 
-        int block_progress = 0;
+        long long int block_progress = 0;
         while((total - block_progress) > 0)
         {
-            int valid = 0;
-            int neighbor;
+            long long int valid = 0;
+            long long int neighbor;
             if (r_gather < r_gather_end) {
                 neighbor = column_index[r_gather];
                 if (distance[neighbor] == -1) {
@@ -145,10 +145,13 @@ __device__ prescan_result block_prefix_sum(const int val) {
             __syncthreads();
 
             const prescan_result prescan = block_prefix_sum(valid);
-            volatile __shared__ int base_offset[1];
+            volatile __shared__ long long int base_offset[1];
             if(threadIdx.x == 0)
             {
-                base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+                // base_offset[0] = atomicAdd(out_queue_count,prescan.total);
+                long long int old_value = *out_queue_count;
+                *out_queue_count += prescan.total;
+                base_offset[0] = old_value;
             }
 
             __syncthreads();
@@ -166,11 +169,11 @@ __device__ prescan_result block_prefix_sum(const int val) {
 
 
 
-		// int block_progress = 0;
+		// long long int block_progress = 0;
 		// while((total - block_progress) > 0)
 		// {
-		// 	int neighbor = -1;
-		// 	int valid = 0;
+		// 	long long int neighbor = -1;
+		// 	long long int valid = 0;
 		// 	if (r_gather < r_gather_end)
 		// 	{
 		// 		neighbor = column_index[r_gather];
@@ -185,13 +188,13 @@ __device__ prescan_result block_prefix_sum(const int val) {
         //     __syncthreads();
 		// 	// Obtain offset in queue by computing prefix sum
 		// 	const prescan_result prescan = block_prefix_sum(valid);
-		// 	volatile __shared__ int base_offset[1];
+		// 	volatile __shared__ long long int base_offset[1];
 
 		// 	// Obtain base enqueue offset and share it to whole block.
 		// 	if(threadIdx.x == 0)
         //     {
 		// 		base_offset[0] = atomicAdd(out_queue_count,prescan.total);
-        //         // int old_value = *out_queue_count;
+        //         // long long int old_value = *out_queue_count;
         //         // *out_queue_count += prescan.total;
         //         // base_offset[0] = old_value;
         //         // // base_offset[0] = *out_queue_count+prescan.total;
@@ -208,28 +211,28 @@ __device__ prescan_result block_prefix_sum(const int val) {
 	}
 }
 
-__device__ void fine_gather(int *device_col_idx, int row_offset_start, 
-                            int row_offset_end, int *device_distance, 
-                            int iteration, int *device_out_queue, int *device_out_queue_size, const int node)
+__device__ void fine_gather(long long int *device_col_idx, long long int row_offset_start, 
+                            long long int row_offset_end, long long int *device_distance, 
+                            long long int iteration, long long int *device_out_queue, long long int *device_out_queue_size, const long long int node)
 {
     // get scatter offset and total with prefix sum
     
     prescan_result rank = block_prefix_sum(row_offset_end-row_offset_start);
-    // printf("hi");
-    // printf("real total %d\n", row_offset_end-row_offset_start);
-    // printf("offset %d\n", prescan_offset);
-    // printf("total %d\n", prescan_total);
+    // prlong long intf("hi");
+    // prlong long intf("real total %d\n", row_offset_end-row_offset_start);
+    // prlong long intf("offset %d\n", prescan_offset);
+    // prlong long intf("total %d\n", prescan_total);
 
-    volatile __shared__ int comm[BLOCK_SIZE];
+    volatile __shared__ long long int comm[BLOCK_SIZE];
 
-    int cta_progress = 0;
+    long long int cta_progress = 0;
 
     while((rank.total - cta_progress) > 0)
     {
-        // printf("start %d\n", row_offset_start);
+        // prlong long intf("start %d\n", row_offset_start);
 
         // All threads pack shared memory
-        // int orig_row_start = row_offset_start;
+        // long long int orig_row_start = row_offset_start;
         while ((rank.offset < cta_progress + BLOCK_SIZE) && (row_offset_start < row_offset_end))
         {
             // add index to shared memory
@@ -240,26 +243,26 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
 
         // if (row_offset_start > 0)
         // {
-        //     printf("start 2 %d\n", row_offset_start);
+        //     prlong long intf("start 2 %d\n", row_offset_start);
         // }
 
         __syncthreads();
 
         // each thread gets a neighbor to add to queue
-        int neighbor;
-        int valid = 0;
+        long long int neighbor;
+        long long int valid = 0;
 
         if (threadIdx.x < (rank.total - cta_progress))
         {
-            // make sure only add neighbor if it points to something
+            // make sure only add neighbor if it polong long ints to something
             neighbor = device_col_idx[comm[threadIdx.x]];
-            // printf("node %d neighbor %d and end %d\n", node, neighbor, row_offset_end);
+            // prlong long intf("node %d neighbor %d and end %d\n", node, neighbor, row_offset_end);
 
             if ((device_distance[neighbor] == -1))
             {
-                // printf("node %d neighbor %d and start %d and end %d\n", node, neighbor, orig_row_start, row_offset_end);
+                // prlong long intf("node %d neighbor %d and start %d and end %d\n", node, neighbor, orig_row_start, row_offset_end);
                 valid = 1;
-                // printf("neighbor %d\n", neighbor);
+                // prlong long intf("neighbor %d\n", neighbor);
                 device_distance[neighbor] = iteration + 1;
             }
         }
@@ -268,12 +271,12 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
 
         // each thread now adds neighbor to queue with index determined by new prescan offset depending on if there is a neighbor
 		const prescan_result prescan = block_prefix_sum(valid);
-		volatile __shared__ int base_offset[1];
+		volatile __shared__ long long int base_offset[1];
 
 			if(threadIdx.x == 0)
             {
 				// base_offset[0] = atomicAdd(device_out_queue_size,prescan.total);
-                int old_value = *device_out_queue_size;
+                long long int old_value = *device_out_queue_size;
                 *device_out_queue_size += prescan.total;
                 base_offset[0] = old_value;
                 // base_offset[0] = *device_out_queue_size+prescan.total;
@@ -281,7 +284,7 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
 
         __syncthreads();
 
-		const int queue_index = base_offset[0] + prescan.offset;
+		const long long int queue_index = base_offset[0] + prescan.offset;
 
         if (valid == 1)
         {
@@ -295,30 +298,30 @@ __device__ void fine_gather(int *device_col_idx, int row_offset_start,
 }
 
 __global__
-void expand_contract_kernel(int *device_col_idx, int *device_row_offset, 
-                            int num_nodes, int *device_in_queue, 
-                            const int device_in_queue_size, int *device_out_queue_size, 
-                            int *device_distance, int iteration, int *device_out_queue)
+void expand_contract_kernel(long long int *device_col_idx, long long int *device_row_offset, 
+                            long long int num_nodes, long long int *device_in_queue, 
+                            const long long int device_in_queue_size, long long int *device_out_queue_size, 
+                            long long int *device_distance, long long int iteration, long long int *device_out_queue)
 {
-    int th_id = blockIdx.x * blockDim.x + threadIdx.x;
+    long long int th_id = blockIdx.x * blockDim.x + threadIdx.x;
     
     do
     {
         // get node from queue
-        int cur_node = th_id < device_in_queue_size ? device_in_queue[th_id] : -1;
+        long long int cur_node = th_id < device_in_queue_size ? device_in_queue[th_id] : -1;
 
         //warp culling and history culling
-        volatile __shared__ int scratch[WARPS][HASH_RANGE];
+        volatile __shared__ long long int scratch[WARPS][HASH_RANGE];
 		// cur_node = warp_cull(scratch, cur_node);
 
-        int row_offset_start = cur_node < 0 ? 0 : device_row_offset[cur_node];
-        int row_offset_end = cur_node < 0 ? 0 : device_row_offset[cur_node+1];
+        long long int row_offset_start = cur_node < 0 ? 0 : device_row_offset[cur_node];
+        long long int row_offset_end = cur_node < 0 ? 0 : device_row_offset[cur_node+1];
 
         const bool big_list = (row_offset_end - row_offset_start) >= BLOCK_SIZE;
 
         // if (big_list)
         // {
-        //     printf("size %d\n", (row_offset_end - row_offset_start));
+        //     prlong long intf("size %d\n", (row_offset_end - row_offset_start));
         // }
 
         block_gather(device_col_idx, device_distance, iteration, device_out_queue, device_out_queue_size, row_offset_start, big_list ? row_offset_end : row_offset_start);
@@ -347,14 +350,14 @@ gpuBFS::gpuBFS(csr &graph, int source)
 
     // start with source (update distance and queue)
     host_distance[source] = 0;
-    cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(long long int), cudaMemcpyHostToDevice);
     *host_cur_queue_size = *host_cur_queue_size + 1;
 
     host_queue[0] = source;
 
     // copy host to device queue
-    cudaMemcpy(device_in_queue, host_queue, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_out_queue_size, host_cur_queue_size, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_in_queue, host_queue, graph.num_nodes * sizeof(long long int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_out_queue_size, host_cur_queue_size, sizeof(long long int), cudaMemcpyHostToDevice);
 
     iteration = 0;
 
@@ -367,9 +370,9 @@ gpuBFS::gpuBFS(csr &graph, int source)
     // loop until frontier is empty
     while (*host_cur_queue_size > 0)
     {
-        cudaMemset(device_out_queue_size,0,sizeof(int));
+        cudaMemset(device_out_queue_size,0,sizeof(long long int));
         
-        const int num_of_blocks = div_up(*host_cur_queue_size, BLOCK_SIZE);
+        const long long int num_of_blocks = div_up(*host_cur_queue_size, BLOCK_SIZE);
 
         // std::cout << iteration << " " << *host_cur_queue_size << std::endl;
         // std::cout << num_of_blocks << std::endl;
@@ -381,14 +384,14 @@ gpuBFS::gpuBFS(csr &graph, int source)
         cudaDeviceSynchronize();
 
         // copy device queue to host
-        cudaMemcpy(host_cur_queue_size, device_out_queue_size, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(host_cur_queue_size, device_out_queue_size, sizeof(long long int), cudaMemcpyDeviceToHost);
         std::swap(device_in_queue, device_out_queue);
 
         iteration++;
     }
 
     // copy device distance to host
-    cudaMemcpy(host_distance, device_distance, graph.num_nodes * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(host_distance, device_distance, graph.num_nodes * sizeof(long long int), cudaMemcpyDeviceToHost);
 
     // host_distance[source] = 0;
 
@@ -400,25 +403,25 @@ gpuBFS::gpuBFS(csr &graph, int source)
 __host__
 void gpuBFS::init_graph_for_device(csr &graph)
 {
-    cudaMalloc(&device_col_idx, graph.num_edges * sizeof(int));
-    cudaMalloc(&device_row_offset, (graph.num_nodes+1) * sizeof(int));
+    cudaMalloc(&device_col_idx, graph.num_edges * sizeof(long long int));
+    cudaMalloc(&device_row_offset, (graph.num_nodes+1) * sizeof(long long int));
 
-    cudaMemcpy(device_col_idx, graph.col_idx, graph.num_edges * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_row_offset, graph.row_offset, (graph.num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_col_idx, graph.col_idx, graph.num_edges * sizeof(long long int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_row_offset, graph.row_offset, (graph.num_nodes+1) * sizeof(long long int), cudaMemcpyHostToDevice);
 }
 
 __host__
 void gpuBFS::init_queue(csr &graph)
 {
     // allocate host memory
-    host_queue = (int *)malloc(graph.num_nodes * sizeof(int));
-    host_cur_queue_size = (int *)malloc(sizeof(int));
+    host_queue = (long long int *)malloc(graph.num_nodes * sizeof(long long int));
+    host_cur_queue_size = (long long int *)malloc(sizeof(long long int));
     *host_cur_queue_size = 0;
 
     // allocate device memory
-    cudaMalloc(&device_in_queue, graph.num_nodes * sizeof(int));
-    cudaMalloc(&device_out_queue, graph.num_nodes * sizeof(int));
-    cudaMalloc(&device_out_queue_size, sizeof(int));
+    cudaMalloc(&device_in_queue, graph.num_nodes * sizeof(long long int));
+    cudaMalloc(&device_out_queue, graph.num_nodes * sizeof(long long int));
+    cudaMalloc(&device_out_queue_size, sizeof(long long int));
 }
 
 
@@ -426,13 +429,13 @@ __host__
 void gpuBFS::init_distance(csr &graph)
 {
     // allocate host memory
-    host_distance = (int *)malloc(graph.num_nodes * sizeof(int));
+    host_distance = (long long int *)malloc(graph.num_nodes * sizeof(long long int));
 
     // allocate device memory
-    cudaMalloc(&device_distance, graph.num_nodes * sizeof(int));
+    cudaMalloc(&device_distance, graph.num_nodes * sizeof(long long int));
 
     // copy memory from host to device
-    cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_distance, host_distance, graph.num_nodes * sizeof(long long int), cudaMemcpyHostToDevice);
 
     // run kernel to inialize distance
     dim3 block(BLOCK_SIZE, 1);
@@ -440,7 +443,7 @@ void gpuBFS::init_distance(csr &graph)
     init_distance_kernel<<<grid, block>>>(device_distance, graph.num_nodes);
 
     // copy back
-    cudaMemcpy(host_distance, device_distance, graph.num_nodes * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(host_distance, device_distance, graph.num_nodes * sizeof(long long int), cudaMemcpyDeviceToHost);
 
     cudaDeviceSynchronize();
 }

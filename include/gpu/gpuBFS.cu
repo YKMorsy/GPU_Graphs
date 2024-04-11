@@ -75,6 +75,7 @@ void block_prefix_sum(int size, int *d_degrees, int *incrDegrees)
         if (modulo == 0) {
             int block = thid >> 10;
             incrDegrees[block + 1] = prefixSum[modulo];
+            // printf("total %d %d\n", block + 1, incrDegrees[block + 1]);
         }
 
         //go down
@@ -91,6 +92,8 @@ void block_prefix_sum(int size, int *d_degrees, int *incrDegrees)
             __syncthreads();
         }
         d_degrees[thid] = prefixSum[modulo];
+
+        // printf("individiual %d %d\n", thid, d_degrees[thid]);
     }
 
 }
@@ -121,6 +124,7 @@ void gather(int *d_adjacencyList, int *d_edgesOffset, int *d_parent, int queueSi
             int v = d_adjacencyList[i];
             if (d_parent[v] == i && v != cur_node) {
                 int nextQueuePlace = sharedIncrement + sum + counter;
+                // printf("individiual %d %d\n", thid, nextQueuePlace);
                 d_nextQueue[nextQueuePlace] = v;
                 counter++;
             }
@@ -188,7 +192,7 @@ gpuBFS::gpuBFS(csr &graph, int source)
     while (*queueSize)
     {
 
-        // std::cout << iteration << " " << *queueSize << std::endl;
+        // std::cout << "iter and size: " << iteration << " " << *queueSize << std::endl;
         
         // next layer phase
         int block_size = 1024;

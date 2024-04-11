@@ -1,68 +1,52 @@
 #include "cpuBFS.h"
 
-cpuBFS::cpuBFS(csr &graph, int source)
-{    
+cpuBFS::cpuBFS(csr &graph, int source) {
     clock_t cpu_start, cpu_end;
     cpu_start = clock();
-    std::queue<int> frontier;
 
-    // std::cout << "starting cpu bfs\n";
-
-    distance.reserve(graph.num_nodes);
-    for (int i = 0; i < graph.num_nodes; i++)
-    {
-        distance[i] = -1;
+    distance = (long long int*)malloc(graph.num_nodes * sizeof(long long int));
+    if (distance == nullptr) {
+        std::cerr << "Memory allocation failed for distance array." << std::endl;
+        return;
     }
 
-    
-    // add source to node
+    std::fill_n(distance, graph.num_nodes, -1);
+
+    std::queue<long long int> frontier;
     frontier.push(source);
     distance[source] = 0;
 
-    // std::cout << "starting cpu iterations\n";
-
     iteration = 0;
 
+    while (!frontier.empty()) {
+        size_t level_size = frontier.size();  // Number of nodes at the current level
 
-    // loop until node queue is empty
-    while(!frontier.empty())
-    {
-        // get front node from queue
-        int cur_node = frontier.front();
-        frontier.pop();
+        std::cout << "iter and size " << iteration << " " << level_size << std::endl;
 
-        // std::cout << cur_node << std::endl;
-        
-        // get neighbors of current node and add to queue
-        int row_offset_start = graph.row_offset[cur_node];
-        int row_offset_end = graph.row_offset[cur_node+1];
+        for (size_t i = 0; i < level_size; ++i) {
+            long long int cur_node = frontier.front();
+            frontier.pop();
 
-        for (int i = row_offset_start; i < row_offset_end; i++)
-        {
-            int neighbor = graph.col_idx[i];
+            long long int row_offset_start = graph.row_offset[cur_node];
+            long long int row_offset_end = graph.row_offset[cur_node + 1];
 
-            // std::cout << "Neighbor Node: " << neighbor << std::endl;
+            for (long long int j = row_offset_start; j < row_offset_end; ++j) {
+                long long int neighbor = graph.col_idx[j];
 
-            // check if node already visited
-            if (distance[neighbor] == -1)
-            {
-                frontier.push(neighbor);
-                // update level of added neighbor nodes
-                distance[neighbor] = distance[cur_node] + 1;
-                if ((distance[neighbor]+1) > iteration)
-                {
-                    iteration = distance[neighbor]+1;
+                if (distance[neighbor] == -1) {
+                    frontier.push(neighbor);
+                    distance[neighbor] = iteration + 1;
                 }
             }
         }
-        
+
+        iteration++;  // Completed processing of one level
     }
 
     cpu_end = clock();
+    exec_time = ((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC * 1000;
+}
 
-    exec_time = (((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC) * 1000;
-
-    // std::cout << "finished cpu bfs\n";
-
-        
+cpuBFS::~cpuBFS() {
+    free(distance);
 }
