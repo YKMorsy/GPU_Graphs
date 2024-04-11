@@ -25,7 +25,7 @@ class gpuBFS
         // void init_queue(csr &graph);
         // void init_graph_for_device(csr &graph);
 
-        int *d_degrees_total;
+        long long int *d_degrees_total;
 
         int *host_queue;
         
@@ -36,7 +36,7 @@ class gpuBFS
 
         // int *d_edges_size;
         int *d_parent;
-        int *d_degrees;
+        long long int *d_degrees;
 
         int *d_col_idx;
         int *d_row_offset;

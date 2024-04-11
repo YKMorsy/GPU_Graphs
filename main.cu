@@ -54,15 +54,15 @@ int main(int argc, char* argv[])
     // }
     std::cout << std::endl;
 
-    // std::cout << "\nRunning GPU BFS\n";
-    // std::cout << std::flush;
-    // gpuBFS gpuBFS(graph, source);
+    std::cout << "\nRunning GPU BFS\n";
+    std::cout << std::flush;
+    gpuBFS gpuBFS(graph, source);
 
-    // // std::cout << "Distance vector: " << std::endl;
-    // // for (long long int i = 0; i < graph.num_nodes; i++) {
-    // //     std::cout << gpuBFS.host_distance[i] << " | ";
-    // // }
-    // std::cout << std::endl;
+    // std::cout << "Distance vector: " << std::endl;
+    // for (long long int i = 0; i < graph.num_nodes; i++) {
+    //     std::cout << gpuBFS.host_distance[i] << " | ";
+    // }
+    std::cout << std::endl;
 
     // std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Serial BFS Depth: " << serialized.iteration-1 << std::endl;
 
-    // std::cout << "GPU BFS Depth: " << gpuBFS.iteration << std::endl;
+    std::cout << "GPU BFS Depth: " << gpuBFS.iteration-1 << std::endl;
 
     int num_mismatch = 0;
     int max_dist_ser = 0;
@@ -90,30 +90,30 @@ int main(int argc, char* argv[])
         {
             max_dist_cpu = cpuBFS.distance[i];
         }
-        // if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
-        // {
-        //     // std::cout << "mismatch at node " << i+1;
-        //     // std::cout << " cpu: " << cpuBFS.distance[i];
-        //     // std::cout << " gpu: " << gpuBFS.host_distance[i] << " | ";
-        //     num_mismatch++;
-        //     // break;
-        // }
-
-        if (serialized.distance[i] != cpuBFS.distance[i])
+        if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
         {
             // std::cout << "mismatch at node " << i+1;
             // std::cout << " cpu: " << cpuBFS.distance[i];
-            // std::cout << " ser: " << serialized.distance[i] << " | ";
+            // std::cout << " gpu: " << gpuBFS.host_distance[i] << " | ";
             num_mismatch++;
             // break;
         }
+
+        // if (serialized.distance[i] != cpuBFS.distance[i])
+        // {
+        //     // std::cout << "mismatch at node " << i+1;
+        //     // std::cout << " cpu: " << cpuBFS.distance[i];
+        //     // std::cout << " ser: " << serialized.distance[i] << " | ";
+        //     num_mismatch++;
+        //     // break;
+        // }
         
     }
 
-    std::cout << std::endl;
-    std::cout << "Max distance cpu: " << max_dist_cpu << std::endl;
-    std::cout << "Max distance ser: " << max_dist_ser << std::endl;
-    std::cout << std::endl;
+    // std::cout << std::endl;
+    // std::cout << "Max distance cpu: " << max_dist_cpu << std::endl;
+    // std::cout << "Max distance ser: " << max_dist_ser << std::endl;
+    // std::cout << std::endl;
     std::cout << "Number of mismatches: " << num_mismatch << std::endl;
 
     return 0;

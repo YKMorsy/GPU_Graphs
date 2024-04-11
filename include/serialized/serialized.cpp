@@ -25,7 +25,7 @@ serialized::serialized(csr &graph, int source) : iteration(0) {
 
     while (queueSize) {
 
-        std::cout << "iter and size " << iteration << " " << queueSize << std::endl;
+        // std::cout << "iter and size " << iteration << " " << queueSize << std::endl;
 
         countDegrees();
 

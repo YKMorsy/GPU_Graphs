@@ -21,7 +21,7 @@ cpuBFS::cpuBFS(csr &graph, int source) {
     while (!frontier.empty()) {
         size_t level_size = frontier.size();  // Number of nodes at the current level
 
-        std::cout << "iter and size " << iteration << " " << level_size << std::endl;
+        // std::cout << "iter and size " << iteration << " " << level_size << std::endl;
 
         for (size_t i = 0; i < level_size; ++i) {
             long long int cur_node = frontier.front();
