@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cluster=gpu
-#SBATCH --partition=gtx1080
+#SBATCH --partition=a100_nvlink
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=bfs_cuda
 
