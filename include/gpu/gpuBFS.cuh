@@ -7,6 +7,8 @@
 #include <queue>
 #include <iostream>
 #include <time.h>
+#include <cuda_runtime.h>
+#include "device_launch_parameters.h"
 #include "../csr/csr.h"
 
 class gpuBFS
@@ -22,10 +24,14 @@ class gpuBFS
     private:
 
         void init_distance(csr &graph, int source);
+        void scanLargeDeviceArray(int *d_out, int *d_in, int length);
+        void scanLargeEvenDeviceArray(int *d_out, int *d_in, int length);
+        void blockPrefixSum(int size);
+        
         // void init_queue(csr &graph);
         // void init_graph_for_device(csr &graph);
 
-        long long int *d_degrees_total;
+        int *d_degrees_total;
 
         int *host_queue;
         
@@ -36,7 +42,7 @@ class gpuBFS
 
         // int *d_edges_size;
         int *d_parent;
-        long long int *d_degrees;
+        int *d_degrees;
 
         int *d_col_idx;
         int *d_row_offset;

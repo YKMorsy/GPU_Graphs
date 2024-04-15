@@ -64,32 +64,32 @@ int main(int argc, char* argv[])
     // }
     std::cout << std::endl;
 
-    // std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
+    std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
-    // // double gpu_time = (end_gpu - start_gpu) / (double)CLOCKS_PER_SEC;
-    // std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
+    std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
-    std::cout << "\nCPU BFS Depth: " << cpuBFS.iteration-1 << std::endl;
+    // std::cout << "\nCPU BFS Depth: " << cpuBFS.iteration-1 << std::endl;
 
-    std::cout << "Serial BFS Depth: " << serialized.iteration-1 << std::endl;
+    // std::cout << "Serial BFS Depth: " << serialized.iteration-1 << std::endl;
 
-    std::cout << "GPU BFS Depth: " << gpuBFS.iteration-1 << std::endl;
+    // std::cout << "GPU BFS Depth: " << gpuBFS.iteration-1 << std::endl;
 
     int num_mismatch = 0;
-    int max_dist_ser = 0;
-    int max_dist_cpu = 0;
+    // int max_dist_ser = 0;
+    // int max_dist_cpu = 0;
 
     for (int i = 0; i < graph.num_nodes; i++) 
     {
 
-        if (serialized.distance[i] > max_dist_ser)
-        {
-            max_dist_ser = serialized.distance[i];
-        }
-        if (cpuBFS.distance[i] > max_dist_cpu)
-        {
-            max_dist_cpu = cpuBFS.distance[i];
-        }
+        // if (serialized.distance[i] > max_dist_ser)
+        // {
+        //     max_dist_ser = serialized.distance[i];
+        // }
+        // if (cpuBFS.distance[i] > max_dist_cpu)
+        // {
+        //     max_dist_cpu = cpuBFS.distance[i];
+        // }
+
         if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
         {
             // std::cout << "mismatch at node " << i+1;
@@ -98,6 +98,8 @@ int main(int argc, char* argv[])
             num_mismatch++;
             // break;
         }
+
+        // std::cout << i << std::endl;
 
         // if (serialized.distance[i] != cpuBFS.distance[i])
         // {

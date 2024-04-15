@@ -5,35 +5,37 @@
 #include <queue>
 #include <iostream>
 #include <time.h>
+#include <limits>
 #include "../csr/csr.h"
+#include <cstring>
 
 class serialized {
 public:
     serialized(csr &graph, int source);
     ~serialized();
 
-    long long int* distance; // Distance array accessible publicly
+    int* distance; // Distance array accessible publicly
     float exec_time; // Execution time accessible publicly
     int iteration;
 
 private:
     void init_distance(csr &graph, int source);
-    void nextLayer(long long int level);
+    void nextLayer();
     void countDegrees();
-    void blockPrefixSum(long long int size);
+    void blockPrefixSum(int size);
     void gather();
 
     int *visited;
-    long long int *d_col_idx;
-    long long int *d_row_offset;
-    long long int *d_distance;
-    long long int *d_parent;
-    long long int *d_in_q;
-    long long int *d_out_q;
-    long long int *d_degrees;
-    long long int *d_degrees_scan;
-    long long int *d_degrees_total;
-    long long int queueSize;
+    int *d_col_idx;
+    int *d_row_offset;
+    int *d_distance;
+    int *d_parent;
+    int *d_in_q;
+    int *d_out_q;
+    int *d_degrees;
+    int *d_degrees_scan;
+    int *d_degrees_total;
+    int queueSize;
 };
 
 #endif

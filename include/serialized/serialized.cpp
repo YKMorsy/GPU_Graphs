@@ -2,33 +2,36 @@
 
 serialized::serialized(csr &graph, int source) : iteration(0) {
 
-    d_col_idx = new long long int[graph.num_edges];
-    d_row_offset = new long long int[graph.num_nodes + 1];
-    d_distance = new long long int[graph.num_nodes];
-    d_parent = new long long int[graph.num_nodes];
-    d_in_q = new long long int[graph.num_nodes];
-    d_out_q = new long long int[graph.num_nodes];
-    d_degrees = new long long int[graph.num_nodes];
-    d_degrees_scan = new long long int[graph.num_nodes];
-    d_degrees_total = new long long int[graph.num_nodes];
-    std::copy(graph.col_idx, graph.col_idx + graph.num_edges, d_col_idx);
-    std::copy(graph.row_offset, graph.row_offset + graph.num_nodes + 1, d_row_offset);
+
+    d_col_idx = (int*)malloc(sizeof(int) * graph.num_edges);
+    d_row_offset = (int*)malloc(sizeof(int) * (graph.num_nodes + 1));
+    d_distance = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_parent = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_in_q = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_out_q = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_degrees = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_degrees_scan = (int*)malloc(sizeof(int) * graph.num_nodes);
+    d_degrees_total = (int*)malloc(sizeof(int) * graph.num_nodes);
+    memcpy(d_col_idx, graph.col_idx, sizeof(int) * graph.num_edges);
+    memcpy(d_row_offset, graph.row_offset, sizeof(int) * (graph.num_nodes + 1));
 
     init_distance(graph, source);
 
-    long long int firstElementQueue = source;
+    int firstElementQueue = source;
     d_in_q[0] = firstElementQueue;
 
     queueSize = 1;
-    long long int nextQueueSize = 0;
+    int nextQueueSize = 0;
 
 
     while (queueSize) {
 
         // std::cout << "iter and size " << iteration << " " << queueSize << std::endl;
 
-        countDegrees();
+        nextLayer();
 
+        countDegrees();
+        
         blockPrefixSum(queueSize);
 
         nextQueueSize = d_degrees_scan[queueSize];
@@ -40,23 +43,22 @@ serialized::serialized(csr &graph, int source) : iteration(0) {
         std::swap(d_in_q, d_out_q);
     }
 
-    // std::cout << "iter " << iteration << std::endl;
-
     distance = d_distance; // Assign the distance array to public variable
-    delete[] d_col_idx;
-    delete[] d_row_offset;
-    delete[] d_parent;
-    delete[] d_in_q;
-    delete[] d_out_q;
-    delete[] d_degrees;
-    delete[] d_degrees_scan;
-    delete[] d_degrees_total;
+    free(d_col_idx);
+    free(d_row_offset);
+    free(d_distance);
+    free(d_parent);
+    free(d_in_q);
+    free(d_out_q);
+    free(d_degrees);
+    free(d_degrees_scan);
+    free(d_degrees_total);
 }
 
 serialized::~serialized() {}
 
 void serialized::init_distance(csr &graph, int source) {
-    for (long long int i = 0; i < graph.num_nodes; ++i) {
+    for (int i = 0; i < graph.num_nodes; ++i) {
         if (i == source) {
             d_distance[i] = 0;
             d_parent[i] = -1;
@@ -67,56 +69,92 @@ void serialized::init_distance(csr &graph, int source) {
     }
 }
 
-void serialized::countDegrees() {
-    for (long long int thid = 0; thid < queueSize; thid++) {
+void serialized::nextLayer() {
+    for (int thid = 0; thid < queueSize; thid++) {
 
-        long long int cur_node = d_in_q[thid];
-        long long int row_offset_start = d_row_offset[cur_node];
-        long long int row_offset_end = d_row_offset[cur_node + 1];
+        int cur_node = d_in_q[thid];
 
-        long long int degree = 0;
+        int row_offset_start = d_row_offset[cur_node];
+        int row_offset_end = d_row_offset[cur_node + 1];
 
-        for (long long int j = row_offset_start; j < row_offset_end; ++j) {
-            long long int v = d_col_idx[j];
-            // if (d_parent[v] == j && v != cur_node) 
+        int degree = 0;
+
+        for (int j = row_offset_start; j < row_offset_end; j++) {
+            int v = d_col_idx[j];
+
             if (d_distance[v] == -1) 
             {
-                degree++;
+                d_parent[v] = j;
+                d_distance[v] = iteration + 1;
             }
         }
-        d_degrees[thid] = degree;
+
     }
 }
 
-void serialized::blockPrefixSum(long long int size) {
+void serialized::countDegrees() {
+
+    int deg_all = 0;
+
+    for (int thid = 0; thid < queueSize; thid++) {
+
+        int cur_node = d_in_q[thid];
+
+        int row_offset_start = d_row_offset[cur_node];
+        int row_offset_end = d_row_offset[cur_node + 1];
+
+        int degree = 0;
+
+        for (int j = row_offset_start; j < row_offset_end; j++) {
+            int v = d_col_idx[j];
+
+            if (d_parent[v] == j && v != cur_node) 
+            {
+                degree++;
+            }
+        }        
+
+        d_degrees[thid] = degree;
+
+        deg_all += degree;
+
+    }
+
+    // if (iteration == 4)
+    // {
+    //     std::cout << "degree total " << deg_all << std::endl;
+    //     // printf("thid and degree %d %d\n", thid, degree);
+    // }
+}
+
+void serialized::blockPrefixSum(int size) {
 
     d_degrees_scan[0] = 0;
 
-    for (long long int thid = 1; thid <= size; thid++) {
+    for (int thid = 1; thid <= size; thid++) {
         d_degrees_scan[thid] = d_degrees[thid-1] + d_degrees_scan[thid-1];
     }
 }
 
 void serialized::gather() {
 
-    for (long long int thid = 0; thid < queueSize; thid++) 
+    for (int thid = 0; thid < queueSize; thid++) 
     {
+        int nextQueuePlace = d_degrees_scan[thid];
 
-        long long int totalPlace = d_degrees_scan[thid+1];
-        
-        long long int nextQueuePlace = d_degrees_scan[thid];
+        int count = 0;
 
-        long long int u = d_in_q[thid];
-        long long int row_offset_start = d_row_offset[u];
-        long long int row_offset_end = d_row_offset[u + 1];
-        for (long long int i = row_offset_start; i < row_offset_end; i++) {
-            long long int v = d_col_idx[i];
-            // if (d_parent[v] == i && v != u) 
-            if (d_distance[v] == -1) 
+        int u = d_in_q[thid];
+        int row_offset_start = d_row_offset[u];
+        int row_offset_end = d_row_offset[u + 1];
+        for (int i = row_offset_start; i < row_offset_end; i++) {
+            int v = d_col_idx[i];
+
+            if (d_parent[v] == i && v != u) 
             {
-                d_distance[v] = iteration + 1;
-                d_out_q[nextQueuePlace] = v; // Use nextQueuePlace to index long long into nextQueue and then increment it
+                d_out_q[nextQueuePlace] = v; // Use nextQueuePlace to index into nextQueue and then increment it
                 nextQueuePlace++;
+                count++;
             }
             
         }
