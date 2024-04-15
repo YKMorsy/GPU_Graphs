@@ -5,6 +5,7 @@
 #SBATCH --partition=a100_nvlink
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=bfs_cuda
+#SBATCH --time=24:00:00 
 
 module purge
 module load gcc/11.3.0
@@ -14,21 +15,27 @@ module load cuda/11.5.0
 # Compile CUDA source files (.cu)
 nvcc -c include/gpu/gpuBFS.cu -o gpuBFS.o
 
+nvcc -c include/prefix_sum/prefixSum.cu -o prefixSum.o
+
 nvcc -c main.cu -o main.o
 
 # Compile non-CUDA source files (.cpp)
 g++ -c include/csr/csr.cpp -o csr.o
 g++ -c include/cpu/cpuBFS.cpp -o cpuBFS.o
+g++ -c include/serialized/serialized.cpp -o serialized.o
 
 # Link objects to create executable
-nvcc -o graphBFS gpuBFS.o cpuBFS.o csr.o main.o
+nvcc -o graphBFS gpuBFS.o prefixSum.o cpuBFS.o serialized.o csr.o main.o
 
 # ncu --set full -o gpu_graph_profile ./graphBFS graphs/europe_osm.txt 47837212
+ncu --set full -o gpu_graph_profile ./graphBFS graphs/wiki.txt 6
 
-./graphBFS graphs/tree.txt 0
-# ./graphBFS graphs/wiki.txt 1485610
+# ./graphBFS graphs/tree.txt 0
+# ./graphBFS graphs/wiki.txt 6
 # ./graphBFS graphs/europe_osm.txt 47837212
 
 # make -f Makefile_cuda run ARGS="graphs/tree.txt 0"
 # make -f Makefile_cuda run ARGS="graphs/wiki.txt 6"
 # make -f Makefile_cuda run ARGS="graphs/europe_osm.txt 47837212"
+
+find . -name '*.o' -type f -exec rm {} +
