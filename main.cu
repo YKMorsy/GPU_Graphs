@@ -68,6 +68,10 @@ int main(int argc, char* argv[])
 
     std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
+    std::cout << "GPU BFS TE: " << gpuBFS.total_edges_traversed << " edges" << std::endl;
+
+    std::cout << "GPU BFS TEPS: " << (gpuBFS.total_edges_traversed/gpuBFS.exec_time)*1000 << " TEPS" << std::endl;
+
     // std::cout << "\nCPU BFS Depth: " << cpuBFS.iteration-1 << std::endl;
 
     // std::cout << "Serial BFS Depth: " << serialized.iteration-1 << std::endl;
