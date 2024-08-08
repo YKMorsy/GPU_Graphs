@@ -1,9 +1,9 @@
 #ifndef GPUBFS_H
 #define GPUBFS_H
 
+#include <nvshmem.h>
 #include "gpuBFS_kernels.cuh"
 #include "../csr/csr.h"
-#include "../prefix_sum/prefixSum.cuh"
 
 class gpuBFS
 {

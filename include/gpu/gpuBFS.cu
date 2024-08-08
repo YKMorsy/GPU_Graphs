@@ -2,28 +2,34 @@
 
 gpuBFS::gpuBFS(csr &graph, int source) 
 {
-    // init queue
-    cudaMalloc(&d_in_q, graph.num_nodes * sizeof(int));
-    cudaMalloc(&d_out_q, graph.num_nodes * sizeof(int));
-    cudaMalloc(&d_q_count, sizeof(int));
+
+    int mype_node;
+    int mype;
+    int npes;
+    int num_nodes_per_pe;
 
     h_q_count = 1;
+
+    nvshmem_init();
+    mype_node = nvshmem_team_my_pe(NVSHMEMX_TEAM_NODE);
+    mype = nvshmem_my_pe();
+    npes = nvshmem_n_pes();
+
+    // init queue
+    nvshmem_malloc(&d_in_q, graph.num_nodes * sizeof(int));
+    nvshmem_malloc(&d_out_q, graph.num_nodes * sizeof(int));
+    nvshmem_malloc(&d_q_count, sizeof(int));
     cudaMemcpy(d_in_q, &source, sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_q_count, &h_q_count, sizeof(int), cudaMemcpyHostToDevice);
 
     // init distance
     host_distance = (int *)malloc(graph.num_nodes * sizeof(int));
-    cudaMalloc(&d_distance, graph.num_nodes * sizeof(int));
+    nvshmem_malloc(&d_distance, graph.num_nodes * sizeof(int));
     init_distance_kernel<<< (graph.num_nodes+1024-1)/1024, 1024 >>>(graph.num_nodes, d_distance, source);
 
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        printf("CUDA Error: %s\n", cudaGetErrorString(err));
-    }
-
     // init graph
-    cudaMalloc(&d_row_offset, (graph.num_nodes+1) * sizeof(int));
-    cudaMalloc(&d_col_idx, graph.num_edges * sizeof(int));
+    nvshmem_malloc(&d_row_offset, (graph.num_nodes+1) * sizeof(int));
+    nvshmem_malloc(&d_col_idx, graph.num_edges * sizeof(int));
     cudaMemcpy(d_row_offset, graph.row_offset, (graph.num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_col_idx, graph.col_idx, graph.num_edges * sizeof(int), cudaMemcpyHostToDevice);
     
@@ -62,13 +68,13 @@ gpuBFS::~gpuBFS()
 {
     free(host_distance);
 
-    cudaFree(d_row_offset);
-    cudaFree(d_col_idx);
+    nvshmem_free(d_row_offset);
+    nvshmem_free(d_col_idx);
 
-    cudaFree(d_distance);
-    cudaFree(d_in_q);
-    cudaFree(d_out_q);
-    cudaFree(d_q_count);
+    nvshmem_free(d_distance);
+    nvshmem_free(d_in_q);
+    nvshmem_free(d_out_q);
+    nvshmem_free(d_q_count);
 }
 
 void gpuBFS::print_distance(csr &graph)
