@@ -1,5 +1,7 @@
 #include "cpuBFS.h"
 
+
+
 cpuBFS::cpuBFS(csr &graph, int source) {
     clock_t cpu_start, cpu_end;
     cpu_start = clock();
@@ -10,13 +12,14 @@ cpuBFS::cpuBFS(csr &graph, int source) {
         return;
     }
 
-    std::fill_n(distance, graph.num_nodes, -1);
+    std::fill_n(distance, graph.num_nodes, INF);
 
     std::queue<long long int> frontier;
     frontier.push(source);
     distance[source] = 0;
 
     iteration = 0;
+    total_edges_traversed = 0;
 
     while (!frontier.empty()) {
         size_t level_size = frontier.size();  // Number of nodes at the current level
@@ -33,7 +36,8 @@ cpuBFS::cpuBFS(csr &graph, int source) {
             for (long long int j = row_offset_start; j < row_offset_end; ++j) {
                 long long int neighbor = graph.col_idx[j];
 
-                if (distance[neighbor] == -1) {
+                if (distance[neighbor] == INF) {
+                    total_edges_traversed++;
                     frontier.push(neighbor);
                     distance[neighbor] = iteration + 1;
                 }
@@ -47,6 +51,18 @@ cpuBFS::cpuBFS(csr &graph, int source) {
     exec_time = ((double) (cpu_end - cpu_start)) / CLOCKS_PER_SEC * 1000;
 }
 
-cpuBFS::~cpuBFS() {
+cpuBFS::~cpuBFS() 
+{
     free(distance);
+}
+
+void cpuBFS::print_distance(csr &graph)
+{
+    std::cout << "\n------CPU DISTANCE VECTOR------" << std::endl;
+
+    for (long long int i = 0; i < graph.num_nodes; i++) 
+    {
+        std::cout << distance[i] << " | ";
+    }
+    std::cout << std::endl;
 }

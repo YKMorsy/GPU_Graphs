@@ -11,6 +11,9 @@ class csr
     public:
         csr(const char* filename);
         ~csr();
+        
+        void print_info();
+        
         int *col_idx;
         int *row_offset;
         int num_nodes;

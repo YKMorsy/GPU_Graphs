@@ -2,9 +2,10 @@
 #include "include/cpu/cpuBFS.h"
 #include "include/serialized/serialized.h"
 #include "include/gpu/gpuBFS.cuh"
-#include <ctime>
 
+#include <ctime>
 #include <cstdlib>
+#include <iostream>
 
 int main(int argc, char* argv[]) 
 {
@@ -16,67 +17,26 @@ int main(int argc, char* argv[])
     const char* file = argv[1];
     int source = std::stoi(argv[2]);
 
-    // for (long long int i = 1; i <= 13; i++) {
-    //     std::cout << i << " " << i+1 << std::endl;
-    // }
-
     csr graph(file);
+    // graph.print_info();
 
-    std::cout << "Column indices: " << graph.num_edges << std::endl;
-    // for (long long int i = 0; i < graph.num_edges; i++) {
-    //     std::cout << graph.col_idx[i] << " | ";
-    // }
-    // std::cout << std::endl;
-
-    std::cout << "Row offset: " << graph.num_nodes << std::endl;
-    // for (long long int i = 0; i < graph.num_nodes+1; i++) {
-    //     std::cout << graph.row_offset[i] << " | ";
-    // }
-    // std::cout << std::endl;
-
-    std::cout << "\nRunning CPU BFS\n";
-    std::cout << std::flush;
     cpuBFS cpuBFS(graph, source);
+    // cpuBFS.print_distance(graph);
 
-    // std::cout << "Distance vector: " << std::endl;
-    // for (long long int i = 0; i < graph.num_nodes; i++) {
-    //     std::cout << cpuBFS.distance[i] << " | ";
-    // }
-    std::cout << std::endl;
-
-    std::cout << "\nRunning Serialized BFS\n";
-    std::cout << std::flush;
-    serialized serialized(graph, source);
-
-    // std::cout << "Distance vector: " << std::endl;
-    // for (long long int i = 0; i < graph.num_nodes; i++) {
-    //     std::cout << serialized.distance[i] << " | ";
-    // }
-    std::cout << std::endl;
-
-    std::cout << "\nRunning GPU BFS\n";
-    std::cout << std::flush;
-    gpuBFS gpuBFS(graph, source);
-
-    // std::cout << "Distance vector: " << std::endl;
-    // for (long long int i = 0; i < graph.num_nodes; i++) {
-    //     std::cout << gpuBFS.host_distance[i] << " | ";
-    // }
-    std::cout << std::endl;
+    gpuBFS gpuBFS(graph, source);    
+    // gpuBFS.print_distance(graph);     
 
     std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
     std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
-    std::cout << "GPU BFS TE: " << gpuBFS.total_edges_traversed << " edges" << std::endl;
+    // std::cout << "CPU BFS TE: " << cpuBFS.total_edges_traversed << " TE" << std::endl;
 
-    std::cout << "GPU BFS TEPS: " << (gpuBFS.total_edges_traversed/gpuBFS.exec_time)*1000 << " TEPS" << std::endl;
+    // std::cout << "GPU BFS TE: " << gpuBFS.total_edges_traversed << " TE" << std::endl;
 
-    // std::cout << "\nCPU BFS Depth: " << cpuBFS.iteration-1 << std::endl;
+    // std::cout << "CPU BFS TEPS: " << (cpuBFS.total_edges_traversed/cpuBFS.exec_time)*1000 << " TEPS" << std::endl;
 
-    // std::cout << "Serial BFS Depth: " << serialized.iteration-1 << std::endl;
-
-    // std::cout << "GPU BFS Depth: " << gpuBFS.iteration-1 << std::endl;
+    // std::cout << "GPU BFS TEPS: " << (gpuBFS.total_edges_traversed/gpuBFS.exec_time)*1000 << " TEPS" << std::endl;
 
     int num_mismatch = 0;
 

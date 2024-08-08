@@ -1,13 +1,7 @@
 #ifndef GPUBFS_H
 #define GPUBFS_H
 
-#include <stdio.h>
-#include <queue>
-#include <iostream>
-#include <time.h>
-#include <cuda_runtime.h>
-#include <nvshmem.h>
-#include "device_launch_parameters.h"
+#include "gpuBFS_kernels.cuh"
 #include "../csr/csr.h"
 #include "../prefix_sum/prefixSum.cuh"
 
@@ -17,11 +11,12 @@ class gpuBFS
 
         gpuBFS(csr &graph, int source);
         ~gpuBFS();
+        void print_distance(csr &graph);
         
         int *host_distance;
-        float exec_time;
-        int total_edges_traversed;
-        int iteration;
+        float exec_time = 0;
+        int total_edges_traversed = 0;
+        int iteration = 0;
         
     private:
 
@@ -31,11 +26,12 @@ class gpuBFS
         void blockPrefixSum(int size);
         
         int *d_distance;
+        
         int *d_in_q;
         int *d_out_q;
-        int *d_parent;
-        int *d_degrees;
-        int *d_degrees_total;
+        int *d_q_count;
+        int h_q_count = 0;
+        
         int *d_col_idx;
         int *d_row_offset;
 };

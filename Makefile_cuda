@@ -6,10 +6,10 @@ NVCC = nvcc
 CFLAGS = -fPIC
 NVCCFLAGS = -gencode arch=compute_61,code=[compute_61,sm_61] \
             -gencode arch=compute_70,code=[compute_70,sm_70] \
-            -Xcompiler -fPIC
+            -Xcompiler -fPIC --expt-relaxed-constexpr
 
 # Source files
-SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/serialized/serialized.cpp include/gpu/gpuBFS.cu include/prefix_sum/prefixSum.cu main.cu
+SRCS = include/csr/csr.cpp include/cpu/cpuBFS.cpp include/serialized/serialized.cpp include/gpu/gpuBFS_kernels.cu include/gpu/gpuBFS.cu include/prefix_sum/prefixSum.cu main.cu
 
 # Object files (substitute .cpp and .cu with .o)
 OBJS = $(filter %.o, $(SRCS:.cpp=.o) $(SRCS:.cu=.o))

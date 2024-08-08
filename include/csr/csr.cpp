@@ -71,3 +71,20 @@ csr::~csr()
     free(col_idx);
     free(row_offset);
 }
+
+void  csr::print_info()
+{
+    std::cout << "\n------CSR INFO------" << std::endl;
+
+    std::cout << "Column indices: " << num_edges << std::endl;
+    for (int i = 0; i < num_edges; i++) {
+        std::cout << col_idx[i] << " | ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Row offset: " << num_nodes << std::endl;
+    for (int i = 0; i < num_nodes+1; i++) {
+        std::cout << row_offset[i] << " | ";
+    }
+    std::cout << std::endl;
+}
