@@ -2,6 +2,7 @@
 #define GPUBFS_H
 
 #include <nvshmem.h>
+#include <nvshmemx.h>
 #include "gpuBFS_kernels.cuh"
 #include "../csr/csr.h"
 
@@ -20,20 +21,36 @@ class gpuBFS
         
     private:
 
-        void init_device(csr &graph, int source, int mype, int npes, int node_start, int node_end);
-        void scanLargeDeviceArray(int *d_out, int *d_in, int length);
-        void scanLargeEvenDeviceArray(int *d_out, int *d_in, int length);
-        void blockPrefixSum(int size);
+        void init_device(csr &graph, int source);
+        void get_device_distance(csr &graph);
         
-        int *d_distance;
+        int *d_distance_local;
         
         int *d_in_q;
         int *d_out_q;
         int *d_q_count;
-        int h_q_count = 0;
+        
         
         int *d_col_idx;
         int *d_row_offset;
+
+        int *d_start_node;
+        int *d_end_node;
+        int *d_edges_traversed;
+        int *d_graph_edges_gpu;
+        int *d_global_q_count;
+
+        int mype_node;
+        int mype;
+        int npes;
+        int start_node;
+        int end_node;
+        int starting_col_idx_pre_pe;
+
+        int h_q_count;
+        int graph_nodes_gpu;
+        int remainder_nodes;
+        int graph_edges_gpu;
 };
 
 #endif

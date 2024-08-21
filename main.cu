@@ -23,12 +23,12 @@ int main(int argc, char* argv[])
     cpuBFS cpuBFS(graph, source);
     // cpuBFS.print_distance(graph);
 
-    gpuBFS gpuBFS(graph, source);    
+    gpuBFS gpuBFS(graph, source);  
     // gpuBFS.print_distance(graph);     
 
     std::cout << "\nCPU BFS Time: " << cpuBFS.exec_time << " ms" << std::endl;
 
-    std::cout << "GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
+    std::cout << nvshmem_my_pe() << " GPU BFS Time: " << gpuBFS.exec_time << " ms" << std::endl;
 
     // std::cout << "CPU BFS TE: " << cpuBFS.total_edges_traversed << " TE" << std::endl;
 
@@ -40,30 +40,39 @@ int main(int argc, char* argv[])
 
     int num_mismatch = 0;
 
-    for (int i = 0; i < graph.num_nodes; i++) 
+    if (nvshmem_my_pe() == 0)
     {
 
-        if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
+        for (int i = 0; i < graph.num_nodes; i++) 
         {
-            // std::cout << "mismatch at node " << i+1;
-            // std::cout << " cpu: " << cpuBFS.distance[i];
-            // std::cout << " gpu: " << gpuBFS.host_distance[i] << " | ";
-            num_mismatch++;
-            // break;
+
+            if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
+            {
+                // std::cout << "mismatch at node " << i+1;
+                // std::cout << " cpu: " << cpuBFS.distance[i];
+                // std::cout << " gpu: " << gpuBFS.host_distance[i] << " | ";
+                num_mismatch++;
+                // break;
+            }
+
+            // if (serialized.distance[i] != cpuBFS.distance[i])
+            // {
+            //     // std::cout << "mismatch at node " << i+1;
+            //     // std::cout << " cpu: " << cpuBFS.distance[i];
+            //     // std::cout << " ser: " << serialized.distance[i] << " | ";
+            //     num_mismatch++;
+            //     // break;
+            // }
+            
         }
 
-        // if (serialized.distance[i] != cpuBFS.distance[i])
-        // {
-        //     // std::cout << "mismatch at node " << i+1;
-        //     // std::cout << " cpu: " << cpuBFS.distance[i];
-        //     // std::cout << " ser: " << serialized.distance[i] << " | ";
-        //     num_mismatch++;
-        //     // break;
-        // }
-        
+        std::cout << "Number of mismatches: " << num_mismatch << std::endl;
+
     }
 
-    std::cout << "Number of mismatches: " << num_mismatch << std::endl;
+    // nvshmem_barrier_all();
+    // nvshmem_finalize();
+    // gpuBFS.~gpuBFS();
 
     return 0;
 }

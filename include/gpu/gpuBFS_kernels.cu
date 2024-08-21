@@ -2,25 +2,24 @@
 #include <stdio.h>
 
 
-
 __global__
-void init_distance_kernel(int size, int *device_distance, int source)
+void init_distance_kernel(const int* start_node, const int* end_node, int num_nodes, int *device_distance, int source)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;\
     
-    if (i < size)
+    if (i < num_nodes)
     {
         device_distance[i] = INF;
     }
 
-    if (i == source)
+    if ((i == source) && (i >= *start_node && i <= *end_node))
     {
-        device_distance[i] = 0;
+        device_distance[i-*start_node] = 0;
     }
 }
 
 __global__ 
-void linear_bfs(const int num_nodes, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed)
+void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed)
 {
 	// Compute index of corresponding vertex in the queue.
 	int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -30,32 +29,85 @@ void linear_bfs(const int num_nodes, const int* row_offset, const int* column_in
 		// skip thread if nothing for it to process
 		if(global_tid >= in_queue_count) continue;
 
-		int local_edges_traversed = 0;
+		int total_pe = nvshmem_n_pes();
+
+        // Compute base nodes per PE and remainder
+        int base_nodes_per_pe = total_nodes / total_pe;
+        int remainder_nodes = total_nodes % total_pe;
 
 		// Get node from the queue
-		int v = in_queue[global_tid];
+		int v = in_queue[global_tid]-*start_node;
 
 		// get neighbors range from offset
-		int r = row_offset[v];
-		int r_end = row_offset[v+1];
+		int r = row_offset[v] - starting_col_idx_pre_pe;
+		int r_end = row_offset[v+1] - starting_col_idx_pre_pe;
 
+		// printf("cur pe: %d and cur node abs: %d and cur node: %d and start r: %d and end r: %d\n", nvshmem_my_pe(), in_queue[global_tid], v, r, r_end);
+
+		// each visits neighbors
 		for(int offset = r; offset < r_end; offset++)
 		{
 			// get neighbor
-			int j = column_index[offset];
+			int neighbor = column_index[offset];
 
-			// add neighbor if not traversed
-			if(distance[j] == INF)
+			// if current pe is responsible for neighbor
+			if (neighbor >= *start_node && neighbor <= *end_node)
 			{
-				local_edges_traversed+=1;
-				distance[j]=iteration+1;
-				// Enqueue vertex.
-				int ind = atomicAdd(out_queue_count,1);
-				out_queue[ind]=j;
+				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), nvshmem_my_pe(), v, neighbor, *start_node, distance[neighbor-*start_node]);
+
+				// add neighbor if not traversed
+				if(distance[neighbor-*start_node] == INF)
+				{
+					atomicAdd(edges_traversed, 1);
+					distance[neighbor-*start_node]=iteration+1;
+					// Enqueue vertex.
+					int ind = atomicAdd(out_queue_count,1);
+					out_queue[ind]=neighbor;
+				}
+			}
+			// another pe is responsible for neighbor
+			else
+			{
+				int target_pe, start_node_target;
+
+				// Handle the first `remainder_nodes` PEs getting an extra node
+				if (neighbor < (base_nodes_per_pe + 1) * remainder_nodes)
+				{
+					target_pe = neighbor / (base_nodes_per_pe + 1);
+					start_node_target = target_pe * (base_nodes_per_pe + 1);
+				}
+				else
+				{
+					target_pe = remainder_nodes + (neighbor - remainder_nodes * (base_nodes_per_pe + 1)) / base_nodes_per_pe;
+					start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
+				}
+			
+				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), target_pe, v, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
+
+
+				// add neighbor if not traversed
+				if(nvshmem_int_g(&distance[neighbor-start_node_target], target_pe) == INF)
+				{
+					// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), v, target_pe, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
+					// update distance vector of target node
+					nvshmem_int_atomic_add(edges_traversed, 1, target_pe);
+					// local_edges_traversed+=1;
+					nvshmem_int_p(&distance[neighbor-start_node_target], iteration+1, target_pe);
+					nvshmem_quiet();
+					// add to queue of target node
+					int ind = nvshmem_int_atomic_fetch_add(out_queue_count, 1, target_pe);
+					nvshmem_quiet();
+					nvshmem_quiet();
+					nvshmem_int_p(&out_queue[ind], neighbor, target_pe);
+					nvshmem_quiet();
+
+					// printf("out_queue of target now contains: %d in idx: %d\n", nvshmem_int_g(&out_queue[ind], target_pe), ind);
+				}
 			}
 		}
 		global_tid += gridDim.x*blockDim.x;
-		atomicAdd(edges_traversed, local_edges_traversed);
+
+		// nvshmem_barrier_all();
 	} 
 	// ensure atleast one thread has something to process
 	while(__syncthreads_or(global_tid < in_queue_count)); 
@@ -138,8 +190,6 @@ prescan_result block_prefix_sum(const int val)
 		value += block_sum;
 	}
 
-	// printf("sum %d\n", sums[warp_id-1]);
-
 	prescan_result result;
 	// Subtract value given by thread to get exclusive prefix sum.
 	result.offset = value - val;
@@ -211,10 +261,6 @@ __device__
 void fine_gather(const int* column_index, int* distance, const int iteration, int* out_queue, int* out_queue_count, int r, int r_end)
 {
 	prescan_result rank = block_prefix_sum(r_end-r);
-
-	// printf("%d\n", rank.total);
-	// printf("%d\n", r);
-	// printf("%d\n\n", r_end);
 
 	__shared__ int comm[1024];
 	int cta_progress = 0;
