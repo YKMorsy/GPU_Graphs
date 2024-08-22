@@ -28,7 +28,7 @@ class gpuBFS
         
         int *d_in_q;
         int *d_out_q;
-        int *d_q_count;
+        uint32_t *d_q_count;
         
         
         int *d_col_idx;
@@ -38,7 +38,7 @@ class gpuBFS
         int *d_end_node;
         int *d_edges_traversed;
         int *d_graph_edges_gpu;
-        int *d_global_q_count;
+        uint32_t *d_global_q_count;
 
         int mype_node;
         int mype;
@@ -47,7 +47,7 @@ class gpuBFS
         int end_node;
         int starting_col_idx_pre_pe;
 
-        int h_q_count;
+        uint32_t h_q_count;
         int graph_nodes_gpu;
         int remainder_nodes;
         int graph_edges_gpu;

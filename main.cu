@@ -23,6 +23,10 @@ int main(int argc, char* argv[])
     cpuBFS cpuBFS(graph, source);
     // cpuBFS.print_distance(graph);
 
+    cpuBFS.cpuBFSAlt(graph, source);
+
+    cpuBFS.testDistance(graph);
+
     gpuBFS gpuBFS(graph, source);  
     // gpuBFS.print_distance(graph);     
 

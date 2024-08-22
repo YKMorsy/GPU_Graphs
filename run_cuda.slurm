@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cluster=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:8
 #SBATCH --partition=a100_nvlink
 #SBATCH --job-name=gpuBFS
 
@@ -36,12 +36,18 @@ nvcc $NVCC_GENCODE -I$NVSHMEM_HOME/include -o graphBFS gpuBFS.o gpuBFS_kernels.o
 # export NVSHMEM_SYMMETRIC_SIZE=30g
 
 # Run the executable
-# mpirun -np 2 ./graphBFS graphs/tree.txt 0
+# mpirun -np 1 ./graphBFS graphs/rmat.txt 0
+mpirun -np 8 ./graphBFS graphs/rmat2.txt 200
+# mpirun -np 2 ./graphBFS graphs/tree2.txt 0
+# mpirun -np 1 ./graphBFS graphs/tree.txt 0
 # mpirun -np 2 ./graphBFS graphs/test.txt 0
 # mpirun -np 2 ./graphBFS graphs/test2.txt 0
 # mpirun -np 2 ./graphBFS graphs/test3.txt 0
 # mpirun -np 2 ./graphBFS graphs/test4.txt 0
+# mpirun -np 2 ./graphBFS graphs/test5.txt 0
+# mpirun -np 1 ./graphBFS graphs/test6.txt 0
 # mpirun -np 2 ./graphBFS graphs/test_isolated_node.txt 1
 # mpirun -np 2 ./graphBFS graphs/test_isolated_node.txt 0
-# mpirun -np 2 ./graphBFS graphs/wiki.txt 5
-mpirun -np 1 ./graphBFS graphs/europe_osm.txt 47837211
+# mpirun -np 1 ./graphBFS graphs/wiki.txt 5
+# mpirun -np 1 ./graphBFS graphs/europe_osm.txt 47837211
+

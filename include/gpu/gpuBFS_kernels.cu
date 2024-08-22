@@ -11,107 +11,240 @@ void init_distance_kernel(const int* start_node, const int* end_node, int num_no
     {
         device_distance[i] = INF;
     }
-
-    if ((i == source) && (i >= *start_node && i <= *end_node))
-    {
-        device_distance[i-*start_node] = 0;
-    }
 }
 
 __global__ 
-void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed)
+void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, 
+                const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, 
+                const uint32_t in_queue_count, int* out_queue, uint32_t* out_queue_count, int* edges_traversed)
 {
-	// Compute index of corresponding vertex in the queue.
-	int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
+    // Compute index of corresponding vertex in the queue.
+    int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	do
-	{
-		// skip thread if nothing for it to process
+    {
+
 		if(global_tid >= in_queue_count) continue;
 
 		int total_pe = nvshmem_n_pes();
 
-        // Compute base nodes per PE and remainder
-        int base_nodes_per_pe = total_nodes / total_pe;
-        int remainder_nodes = total_nodes % total_pe;
-
 		// Get node from the queue
-		int v = in_queue[global_tid]-*start_node;
+		int v = in_queue[global_tid] - *start_node;
 
-		// get neighbors range from offset
-		int r = row_offset[v] - starting_col_idx_pre_pe;
-		int r_end = row_offset[v+1] - starting_col_idx_pre_pe;
-
-		// printf("cur pe: %d and cur node abs: %d and cur node: %d and start r: %d and end r: %d\n", nvshmem_my_pe(), in_queue[global_tid], v, r, r_end);
-
-		// each visits neighbors
-		for(int offset = r; offset < r_end; offset++)
+		// Only proceed if this node hasn't been visited yet (use atomicCAS to update distance)
+		if (atomicCAS(&distance[v], INF, iteration) == INF) 
 		{
-			// get neighbor
-			int neighbor = column_index[offset];
+			atomicAdd(edges_traversed, 1);
 
-			// if current pe is responsible for neighbor
-			if (neighbor >= *start_node && neighbor <= *end_node)
+			// Get neighbors range from offset
+			int r = row_offset[v] - starting_col_idx_pre_pe;
+			int r_end = row_offset[v + 1] - starting_col_idx_pre_pe;
+
+			// Each thread visits its neighbors
+			for(int offset = r; offset < r_end; ++offset)
 			{
-				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), nvshmem_my_pe(), v, neighbor, *start_node, distance[neighbor-*start_node]);
+				// Get neighbor
+				int neighbor = column_index[offset];
 
-				// add neighbor if not traversed
-				if(distance[neighbor-*start_node] == INF)
+				if (neighbor >= *start_node && neighbor <= *end_node)
 				{
-					atomicAdd(edges_traversed, 1);
-					distance[neighbor-*start_node]=iteration+1;
-					// Enqueue vertex.
-					int ind = atomicAdd(out_queue_count,1);
-					out_queue[ind]=neighbor;
-				}
-			}
-			// another pe is responsible for neighbor
-			else
-			{
-				int target_pe, start_node_target;
-
-				// Handle the first `remainder_nodes` PEs getting an extra node
-				if (neighbor < (base_nodes_per_pe + 1) * remainder_nodes)
-				{
-					target_pe = neighbor / (base_nodes_per_pe + 1);
-					start_node_target = target_pe * (base_nodes_per_pe + 1);
+					uint32_t ind = atomicAdd(out_queue_count, 1);
+					out_queue[ind] = neighbor;
 				}
 				else
 				{
-					target_pe = remainder_nodes + (neighbor - remainder_nodes * (base_nodes_per_pe + 1)) / base_nodes_per_pe;
-					start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
-				}
-			
-				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), target_pe, v, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
+					int target_pe, start_node_target;
+					int total_pe = nvshmem_n_pes();
+					int base_nodes_per_pe = total_nodes / total_pe;
+					int remainder_nodes = total_nodes % total_pe;
 
-
-				// add neighbor if not traversed
-				if(nvshmem_int_g(&distance[neighbor-start_node_target], target_pe) == INF)
-				{
-					// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), v, target_pe, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
-					// update distance vector of target node
-					nvshmem_int_atomic_add(edges_traversed, 1, target_pe);
-					// local_edges_traversed+=1;
-					nvshmem_int_p(&distance[neighbor-start_node_target], iteration+1, target_pe);
-					nvshmem_quiet();
-					// add to queue of target node
-					int ind = nvshmem_int_atomic_fetch_add(out_queue_count, 1, target_pe);
-					nvshmem_quiet();
-					nvshmem_quiet();
+					if (neighbor < (base_nodes_per_pe + 1) * remainder_nodes)
+					{
+						target_pe = neighbor / (base_nodes_per_pe + 1);
+						start_node_target = target_pe * (base_nodes_per_pe + 1);
+					}
+					else
+					{
+						target_pe = remainder_nodes + (neighbor - remainder_nodes * (base_nodes_per_pe + 1)) / base_nodes_per_pe;
+						start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
+					}
+					uint32_t ind = nvshmem_size_atomic_fetch_add(reinterpret_cast<size_t*>(out_queue_count), 1, target_pe);
 					nvshmem_int_p(&out_queue[ind], neighbor, target_pe);
-					nvshmem_quiet();
-
-					// printf("out_queue of target now contains: %d in idx: %d\n", nvshmem_int_g(&out_queue[ind], target_pe), ind);
 				}
 			}
 		}
-		global_tid += gridDim.x*blockDim.x;
 
-		// nvshmem_barrier_all();
-	} 
-	// ensure atleast one thread has something to process
-	while(__syncthreads_or(global_tid < in_queue_count)); 
+		global_tid += gridDim.x * blockDim.x;
+
+	}while(__syncthreads_or(global_tid < in_queue_count)); 
 }
+
+// __global__ 
+// void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, 
+//                 const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, 
+//                 const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed)
+// {
+//     // Compute index of corresponding vertex in the queue.
+//     int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+//     do
+//     {
+//         // Check if thread has work to do
+//         if(global_tid < in_queue_count)
+//         {
+//             int total_pe = nvshmem_n_pes();
+
+//             // Compute base nodes per PE and remainder
+//             int base_nodes_per_pe = total_nodes / total_pe;
+//             int remainder_nodes = total_nodes % total_pe;
+
+//             // Get node from the queue
+//             int v = in_queue[global_tid] - *start_node;
+
+//             // Only proceed if this node hasn't been visited yet (use atomicCAS to update distance)
+//             if (distance[v] == INF) 
+//             {
+//                 atomicAdd(edges_traversed, 1);
+// 				distance[v] = iteration;
+
+//                 // Get neighbors range from offset
+//                 int r = row_offset[v] - starting_col_idx_pre_pe;
+//                 int r_end = row_offset[v + 1] - starting_col_idx_pre_pe;
+
+//                 // Each thread visits its neighbors
+//                 for(int offset = r; offset < r_end; ++offset)
+//                 {
+//                     // Get neighbor
+//                     int neighbor = column_index[offset];
+					
+//                     // Add neighbor to the appropriate queue
+//                     if (neighbor >= *start_node && neighbor <= *end_node)
+//                     {
+//                         int ind = atomicAdd(out_queue_count, 1);
+//                         out_queue[ind] = neighbor;
+//                     }
+//                     else
+//                     {
+// 						// Determine which PE is responsible for the neighbor
+// 						int target_pe, start_node_target;
+
+// 						if (neighbor < (base_nodes_per_pe + 1) * remainder_nodes)
+// 						{
+// 							target_pe = neighbor / (base_nodes_per_pe + 1);
+// 							start_node_target = target_pe * (base_nodes_per_pe + 1);
+// 						}
+// 						else
+// 						{
+// 							target_pe = remainder_nodes + (neighbor - remainder_nodes * (base_nodes_per_pe + 1)) / base_nodes_per_pe;
+// 							start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
+// 						}
+//                         int ind = nvshmem_int_atomic_fetch_add(out_queue_count, 1, target_pe);
+//                         nvshmem_int_p(&out_queue[ind], neighbor, target_pe);
+//                     }
+//                 }
+//             }
+//         }
+
+//         // Increment global thread ID to move to the next batch of work
+//         global_tid += gridDim.x * blockDim.x;
+
+//         // Synchronize all threads to ensure that they all complete their work before checking the next iteration
+//         __syncthreads();
+//     } 
+//     // Continue until all threads have completed their work
+//     while(__syncthreads_or(global_tid < in_queue_count)); 
+// }
+
+
+
+// __global__ 
+// void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, 
+// 				const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, 
+// 				const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed)
+// {
+// 	// Compute index of corresponding vertex in the queue.
+// 	int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+// 	do
+// 	{
+// 		// skip thread if nothing for it to process
+// 		if(global_tid >= in_queue_count) continue;
+
+// 		int total_pe = nvshmem_n_pes();
+
+//         // Compute base nodes per PE and remainder
+//         int base_nodes_per_pe = total_nodes / total_pe;
+//         int remainder_nodes = total_nodes % total_pe;
+
+// 		// Get node from the queue
+// 		int v = in_queue[global_tid]-*start_node;
+
+// 		// get neighbors range from offset
+// 		int r = row_offset[v] - starting_col_idx_pre_pe;
+// 		int r_end = row_offset[v+1] - starting_col_idx_pre_pe;
+
+
+// 		// printf("cur pe: %d and cur node abs: %d and cur node: %d and start r: %d and end r: %d\n", nvshmem_my_pe(), in_queue[global_tid], v, r, r_end);
+
+// 		// each visits neighbors
+// 		for(int offset = r; offset < r_end; offset++)
+// 		{
+// 			// get neighbor
+// 			int neighbor = column_index[offset];
+
+// 			// if current pe is responsible for neighbor
+// 			if (neighbor >= *start_node && neighbor <= *end_node)
+// 			{
+// 				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), nvshmem_my_pe(), v, neighbor, *start_node, distance[neighbor-*start_node]);
+
+// 				// add neighbor if not traversed
+// 				if(distance[neighbor-*start_node] == INF)
+// 				{
+// 					atomicAdd(edges_traversed, 1);
+// 					distance[neighbor-*start_node]=iteration+1;
+// 					// Enqueue vertex.
+// 					int ind = atomicAdd(out_queue_count,1);
+// 					out_queue[ind]=neighbor;
+// 				}
+// 			}
+// 			// another pe is responsible for neighbor
+// 			else
+// 			{
+// 				int target_pe, start_node_target;
+
+// 				// Handle the first `remainder_nodes` PEs getting an extra node
+// 				if (neighbor < (base_nodes_per_pe + 1) * remainder_nodes)
+// 				{
+// 					target_pe = neighbor / (base_nodes_per_pe + 1);
+// 					start_node_target = target_pe * (base_nodes_per_pe + 1);
+// 				}
+// 				else
+// 				{
+// 					target_pe = remainder_nodes + (neighbor - remainder_nodes * (base_nodes_per_pe + 1)) / base_nodes_per_pe;
+// 					start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
+// 				}
+			
+// 				// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), target_pe, v, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
+// 				// add neighbor if not traversed
+// 				if(nvshmem_int_g(&distance[neighbor-start_node_target], target_pe) == INF)
+// 				{
+
+// 					// printf("cur pe: %d and target pe: %d for cur node: %d for neighbor: %d and start_node_target: %d with value: %d\n", nvshmem_my_pe(), v, target_pe, neighbor, start_node_target, nvshmem_int_g(&distance[neighbor-start_node_target], target_pe));
+// 					// update distance vector of target node
+// 					nvshmem_int_atomic_add(edges_traversed, 1, target_pe);
+// 					nvshmem_int_p(&distance[neighbor-start_node_target], iteration+1, target_pe);
+// 					// add to queue of target node
+// 					int ind = nvshmem_int_atomic_fetch_add(out_queue_count, 1, target_pe);
+// 					nvshmem_int_p(&out_queue[ind], neighbor, target_pe);
+// 					// printf("out_queue of target now contains: %d in idx: %d\n", nvshmem_int_g(&out_queue[ind], target_pe), ind);
+// 				}
+// 			}
+// 		}
+// 		global_tid += gridDim.x*blockDim.x;
+// 	} 
+// 	// ensure atleast one thread has something to process
+// 	while(__syncthreads_or(global_tid < in_queue_count)); 
+// }
 
  __device__ int warp_cull(volatile int scratch[WARPS][HASH_RANGE], const int v)
 {

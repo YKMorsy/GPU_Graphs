@@ -65,12 +65,13 @@ gpuBFS::gpuBFS(csr &graph, int source)
 
     while(global_q_count > 0) 
     {
-        // std::cout << "start pe: " << mype << " h_q_count: " << h_q_count << std::endl;
+        // std::cout << "pe: " << mype << " h_q_count: " << h_q_count << std::endl;
 
-        CUDA_CHECK(cudaMemset(d_q_count, 0, sizeof(int)));
+        CUDA_CHECK(cudaMemset(d_q_count, 0, sizeof(uint32_t)));
         CUDA_CHECK(cudaMemset(d_edges_traversed, 0, sizeof(int)));
         
         // Launch the BFS kernel
+        // (h_q_count + 1024 - 1) / 1024, 1024 
         linear_bfs<<< (h_q_count + 1024 - 1) / 1024, 1024 >>>(
             graph.num_nodes, starting_col_idx_pre_pe, d_start_node, d_end_node, 
             d_row_offset, d_col_idx, d_distance_local, iteration, d_in_q, 
@@ -80,32 +81,22 @@ gpuBFS::gpuBFS(csr &graph, int source)
         nvshmem_barrier_all();
         
         // Copy d_q_count from device to host for local PE
-        CUDA_CHECK(cudaMemcpy(&h_q_count, d_q_count, sizeof(int), cudaMemcpyDeviceToHost));
-
+        CUDA_CHECK(cudaMemcpy(&h_q_count, d_q_count, sizeof(uint32_t), cudaMemcpyDeviceToHost));
         nvshmem_barrier_all();
 
         // Perform global sum reduction for d_q_count across all PEs
-        nvshmem_int_sum_reduce(NVSHMEM_TEAM_WORLD, d_global_q_count, d_q_count, 1);
-        nvshmem_quiet();
+        nvshmem_uint32_or_reduce(NVSHMEM_TEAM_WORLD, d_global_q_count, d_q_count, 1);
         nvshmem_barrier_all();
 
         // Copy the global sum from device to host to check the result
-        CUDA_CHECK(cudaMemcpy(&global_q_count, d_global_q_count, sizeof(int), cudaMemcpyDeviceToHost));
-        
-        // std::cout << "end pe: " << mype << " h_q_count: " << h_q_count << " global_q_count: " << global_q_count << std::endl;
+        CUDA_CHECK(cudaMemcpy(&global_q_count, d_global_q_count, sizeof(uint32_t), cudaMemcpyDeviceToHost));
 
         // Swap queues for the next iteration
         std::swap(d_in_q, d_out_q);
         iteration++;
 
         CUDA_CHECK(cudaMemcpy(&total_edges_traversed, d_edges_traversed, sizeof(int), cudaMemcpyDeviceToHost));
-        
-        // CUDA_CHECK(cudaDeviceSynchronize());
         nvshmem_barrier_all();
-
-        std::cout << mype << " " << total_edges_traversed << std::endl;
-
-        
     }
 
     /* CUDA EVENTS FOR TIMING */
@@ -147,7 +138,7 @@ void gpuBFS::get_device_distance(csr &graph)
 
 void gpuBFS::init_device(csr &graph, int source) 
 {
-    d_global_q_count = (int *)nvshmem_malloc(sizeof(int));  // Allocate memory on device
+    d_global_q_count = (uint32_t *)nvshmem_malloc(sizeof(uint32_t));  // Allocate memory on device
 
     d_start_node = (int *)nvshmem_malloc(sizeof(int));
     CUDA_CHECK(cudaMemcpy(d_start_node, &start_node, sizeof(int), cudaMemcpyHostToDevice));
@@ -159,11 +150,13 @@ void gpuBFS::init_device(csr &graph, int source)
     d_edges_traversed = (int *)nvshmem_malloc(sizeof(int));
     CUDA_CHECK(cudaMemset(d_edges_traversed, 0, sizeof(int)));
 
-    d_in_q = (int *)nvshmem_malloc(graph_nodes_gpu * sizeof(int));
-    d_out_q = (int *)nvshmem_malloc(graph_nodes_gpu * sizeof(int));
-    d_q_count = (int *)nvshmem_malloc(sizeof(int));
+    d_in_q = (int *)nvshmem_malloc(graph.num_edges * sizeof(int));
+    d_out_q = (int *)nvshmem_malloc(graph.num_edges * sizeof(int));
+    // d_in_q = (int *)nvshmem_malloc(graph_nodes_gpu * sizeof(int));
+    // d_out_q = (int *)nvshmem_malloc(graph_nodes_gpu * sizeof(int));
+    d_q_count = (uint32_t *)nvshmem_malloc(sizeof(uint32_t));
     CUDA_CHECK(cudaMemcpy(d_in_q, &source, sizeof(int), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_q_count, &h_q_count, sizeof(int), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_q_count, &h_q_count, sizeof(uint32_t), cudaMemcpyHostToDevice));
 
     if (mype == 0) {
         host_distance = (int *)malloc(graph.num_nodes * sizeof(int));

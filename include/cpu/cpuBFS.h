@@ -16,7 +16,10 @@ public:
     cpuBFS(csr &graph, int source);
     ~cpuBFS(); // Destructor to free allocated memory
     void print_distance(csr &graph);
+    void testDistance(csr &graph);
+    void cpuBFSAlt(csr &graph, int source);
     long long int *distance; // Using raw pointer for dynamic allocation
+    long long int *distance_alt; // Using raw pointer for dynamic allocation
     float exec_time;
     int iteration;
     int total_edges_traversed;

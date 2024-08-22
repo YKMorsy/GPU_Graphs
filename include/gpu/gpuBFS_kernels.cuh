@@ -15,7 +15,7 @@ struct prescan_result
 	int offset, total;
 };
 
-__global__ void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const int in_queue_count, int* out_queue, int* out_queue_count, int* edges_traversed);
+__global__ void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const int* start_node, const int* end_node, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const uint32_t in_queue_count, int* out_queue, uint32_t* out_queue_count, int* edges_traversed);
 __global__ void init_distance_kernel(const int* start_node, const int* end_node, int size, int *device_distance, int source);
 __global__ void expand_contract_bfs(const int num_nodes, const int* row_offset, const int* column_index, int* distance, const int iteration, const int* in_queue, const int in_queue_count, int* out_queue, int* out_queue_count);
 
