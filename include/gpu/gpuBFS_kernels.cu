@@ -69,7 +69,7 @@ void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const 
 						start_node_target = remainder_nodes * (base_nodes_per_pe + 1) + (target_pe - remainder_nodes) * base_nodes_per_pe;
 					}
 					uint32_t ind = nvshmem_size_atomic_fetch_add(reinterpret_cast<size_t*>(out_queue_count), 1, target_pe);
-					nvshmem_int_p(&out_queue[ind], neighbor, target_pe);
+					nvshmem_int_put_nbi(out_queue + ind, &neighbor, 1, target_pe);
 				}
 			}
 		}

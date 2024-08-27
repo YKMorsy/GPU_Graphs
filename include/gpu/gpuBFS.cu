@@ -68,7 +68,7 @@ gpuBFS::gpuBFS(csr &graph, int source)
         // std::cout << "pe: " << mype << " h_q_count: " << h_q_count << std::endl;
 
         CUDA_CHECK(cudaMemset(d_q_count, 0, sizeof(uint32_t)));
-        CUDA_CHECK(cudaMemset(d_edges_traversed, 0, sizeof(int)));
+        // CUDA_CHECK(cudaMemset(d_edges_traversed, 0, sizeof(int)));
         
         // Launch the BFS kernel
         // (h_q_count + 1024 - 1) / 1024, 1024 
@@ -95,8 +95,8 @@ gpuBFS::gpuBFS(csr &graph, int source)
         std::swap(d_in_q, d_out_q);
         iteration++;
 
-        CUDA_CHECK(cudaMemcpy(&total_edges_traversed, d_edges_traversed, sizeof(int), cudaMemcpyDeviceToHost));
-        nvshmem_barrier_all();
+        // CUDA_CHECK(cudaMemcpy(&total_edges_traversed, d_edges_traversed, sizeof(int), cudaMemcpyDeviceToHost));
+        // nvshmem_barrier_all();
     }
 
     /* CUDA EVENTS FOR TIMING */

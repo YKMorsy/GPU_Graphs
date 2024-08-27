@@ -36,11 +36,11 @@ int main(int argc, char* argv[])
 
     // std::cout << "CPU BFS TE: " << cpuBFS.total_edges_traversed << " TE" << std::endl;
 
-    // std::cout << "GPU BFS TE: " << gpuBFS.total_edges_traversed << " TE" << std::endl;
+    std::cout << "GPU BFS TE: " << gpuBFS.total_edges_traversed << " TE" << std::endl;
 
     // std::cout << "CPU BFS TEPS: " << (cpuBFS.total_edges_traversed/cpuBFS.exec_time)*1000 << " TEPS" << std::endl;
 
-    // std::cout << "GPU BFS TEPS: " << (gpuBFS.total_edges_traversed/gpuBFS.exec_time)*1000 << " TEPS" << std::endl;
+    std::cout << "GPU BFS TEPS: " << (gpuBFS.total_edges_traversed/gpuBFS.exec_time)*1000 << " TEPS" << std::endl;
 
     int num_mismatch = 0;
 
