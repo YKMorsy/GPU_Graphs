@@ -1,4 +1,5 @@
 #include "../include/csc.h"
+#include "../include/cpuBFS.h"
 
 #include <ctime>
 #include <cstdlib>
@@ -20,11 +21,16 @@ int main(int argc, char* argv[])
     // graph.print_info(1,0);
     // graph.print_info(1,1);
 
-    csc graph(file, 1, 2);
-    graph.print_info(0,0);
-    graph.print_info(0,1);
+    // csc graph(file, 1, 2);
+    // graph.print_info(0,0);
+    // graph.print_info(0,1);
 
-    
+    csc graph(file, 1, 1);
+    graph.print_info(0,0);
+
+    cpuBFS cpuBFS(graph, 0);
+    cpuBFS.print_distance(graph);
+
 
 
 

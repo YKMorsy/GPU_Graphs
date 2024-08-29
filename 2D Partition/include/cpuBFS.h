@@ -1,25 +1,23 @@
 #ifndef CPUBFS_H
 #define CPUBFS_H
 
-#include <queue>
+#include <vector>
 #include <iostream>
 #include <time.h>
-#include <stdlib.h> // for malloc and free
-#include "../csr/csr.h"
+#include <stdlib.h>
 #include <limits>
 
-#define INF std::numeric_limits<int>::max()
+#include "csc.h"
 
 class cpuBFS
 {
 public:
-    cpuBFS(csr &graph, int source);
-    ~cpuBFS(); // Destructor to free allocated memory
-    void print_distance(csr &graph);
-    long long int *distance; // Using raw pointer for dynamic allocation
-    long long int *distance_alt; // Using raw pointer for dynamic allocation
+    cpuBFS(csc &graph, int source);
+    ~cpuBFS();
+    void print_distance(csc &graph);
+
+    std::vector<int> distance;
     float exec_time;
-    int iteration;
     int total_edges_traversed;
 };
 
