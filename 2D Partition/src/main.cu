@@ -14,8 +14,17 @@ int main(int argc, char* argv[])
     const char* file = argv[1];
     int source = std::stoi(argv[2]);
 
-    csc graph(file);
-    graph.print_info();
+    // csc graph(file, 2, 2);
+    // graph.print_info(0,0);
+    // graph.print_info(0,1);
+    // graph.print_info(1,0);
+    // graph.print_info(1,1);
+
+    csc graph(file, 1, 2);
+    graph.print_info(0,0);
+    graph.print_info(0,1);
+
+    
 
 
 

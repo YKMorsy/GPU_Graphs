@@ -5,19 +5,24 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <cfenv>
+#include <cmath>
+#include <utility>
+#include <algorithm> 
 
 class csc
 {
     public:
-        csc(const char* filename);
+        csc(const char* filename, int R, int C);
         ~csc();
         
-        void print_info();
-        
-        int *col_offset;
-        int *row_index;
+        void print_info(int r, int c);
+
+        std::vector<std::pair<std::vector<int> , std::vector<int>>> csc_vect;
         int num_nodes;
         int num_edges;
+        int num_R;
+        int num_C;
 };
 
 #endif
