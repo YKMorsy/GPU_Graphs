@@ -1,5 +1,6 @@
 #include "../include/csc.h"
 #include "../include/cpuBFS.h"
+#include "../include/gpuBFS.cuh"
 
 #include <ctime>
 #include <cstdlib>
@@ -31,9 +32,23 @@ int main(int argc, char* argv[])
     cpuBFS cpuBFS(graph, 0);
     cpuBFS.print_distance(graph);
 
+    gpuBFS gpuBFS(graph, 0, 1, 1);
+    gpuBFS.print_distance(graph);
 
+    std::cout << "CPU TIME: " << cpuBFS.exec_time << " Seconds" << std::endl;
+    std::cout << "GPU TIME: " << gpuBFS.exec_time << " Seconds" << std::endl;
 
+    int num_mismatch = 0;
+    for (int i = 0; i < graph.num_nodes; i++) 
+    {
 
+        if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
+        {
+            num_mismatch++;
+        }
+        
+    }
+    std::cout << "Number of mismatches: " << num_mismatch << std::endl;
 
     return 0;
 }
