@@ -20,8 +20,8 @@ class csc
         std::vector<std::pair<std::vector<int> , std::vector<int>>> csc_vect;
         int num_nodes;
         int num_edges;
-        int num_R;
-        int num_C;
+        int num_pe_R;
+        int num_pe_C;
 };
 
 #endif

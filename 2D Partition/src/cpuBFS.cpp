@@ -8,7 +8,7 @@ cpuBFS::cpuBFS(csc &graph, int source)
     // get csc arrays
     std::vector<int> col_offset = graph.csc_vect[0].first;
     std::vector<int> row_index = graph.csc_vect[0].second;
-    int num_nodes = col_offset.size()-1;
+    int num_nodes = graph.num_nodes;
 
     distance.resize(num_nodes, -1);
 

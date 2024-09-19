@@ -4,8 +4,10 @@
 #include <nvshmem.h>
 #include <nvshmemx.h>
 #include <vector>
+#include <stdio.h>
 
 #include "csc.h"
+#include "prefixSum.cuh"
 
 class gpuBFS
 {
@@ -26,6 +28,8 @@ class gpuBFS
 
         int pe_rows, pe_cols;
 
+        int start_node;
+
         int total_nodes;
         int pe_nodes;
         
@@ -43,27 +47,14 @@ class gpuBFS
         int *d_cumulative_degrees;
         int *d_degrees;
         int *d_total_degrees;
+
+        int *d_start_col_node;
+
+        int *d_dest_verts_count;
+        int *d_global_frontier_count;
+        int *d_all_frontier_count;
+        int *d_all_frontier;
 };
 
-// CUDA error checking macro
-#define CUDA_CHECK(call) { \
-    cudaError_t err = call; \
-    if (err != cudaSuccess) { \
-        fprintf(stderr, "CUDA error in file '%s' in line %i : %s.\n", \
-            __FILE__, __LINE__, cudaGetErrorString(err)); \
-        exit(EXIT_FAILURE); \
-    } \
-}
-
-// NVSHMEM error checking macro
-#define NVSHMEM_CHECK(stmt)                                                                \
-    do {                                                                                   \
-        int result = (stmt);                                                               \
-        if (NVSHMEMX_SUCCESS != result) {                                                  \
-            fprintf(stderr, "[%s:%d] nvshmem failed with error %d \n", __FILE__, __LINE__, \
-                    result);                                                               \
-            exit(-1);                                                                      \
-        }                                                                                  \
-    } while (0)
 
 #endif

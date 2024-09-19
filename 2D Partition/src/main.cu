@@ -26,29 +26,38 @@ int main(int argc, char* argv[])
     // graph.print_info(0,0);
     // graph.print_info(0,1);
 
-    csc graph(file, 1, 1);
-    graph.print_info(0,0);
+    
+    // graph.print_info(0,0);
+    // graph.print_info(0,1);
+    // graph.print_info(1,0);
+    // graph.print_info(1,1);
 
-    cpuBFS cpuBFS(graph, 0);
-    cpuBFS.print_distance(graph);
+    // csc graph_cpu(file, 1, 1);
+    // cpuBFS cpuBFS(graph_cpu, 0);
+    // cpuBFS.print_distance(graph_cpu);
 
-    gpuBFS gpuBFS(graph, 0, 1, 1);
-    gpuBFS.print_distance(graph);
+    csc graph_gpu(file, 2, 2);
+    // graph_gpu.print_info(0,0);
+    // graph_gpu.print_info(0,1);
+    // graph_gpu.print_info(1,0);
+    // graph_gpu.print_info(1,1);
+    gpuBFS gpuBFS(graph_gpu, 0, 2, 2);
+    gpuBFS.print_distance(graph_gpu);
 
-    std::cout << "CPU TIME: " << cpuBFS.exec_time << " Seconds" << std::endl;
-    std::cout << "GPU TIME: " << gpuBFS.exec_time << " Seconds" << std::endl;
+    // std::cout << "CPU TIME: " << cpuBFS.exec_time << " Seconds" << std::endl;
+    // std::cout << "GPU TIME: " << gpuBFS.exec_time << " Seconds" << std::endl;
 
-    int num_mismatch = 0;
-    for (int i = 0; i < graph.num_nodes; i++) 
-    {
+    // int num_mismatch = 0;
+    // for (int i = 0; i < graph.num_nodes; i++) 
+    // {
 
-        if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
-        {
-            num_mismatch++;
-        }
+    //     if (gpuBFS.host_distance[i] != cpuBFS.distance[i])
+    //     {
+    //         num_mismatch++;
+    //     }
         
-    }
-    std::cout << "Number of mismatches: " << num_mismatch << std::endl;
+    // }
+    // std::cout << "Number of mismatches: " << num_mismatch << std::endl;
 
     return 0;
 }

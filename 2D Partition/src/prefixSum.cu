@@ -138,7 +138,7 @@ void gpu_prescan(int* const d_out,
 
 void PrefixSum::sum_scan_blelloch(int* const d_out,
 	const int* const d_in,
-	const size_t numElems)
+	const int numElems)
 {
 	// Zero out d_out
 	(cudaMemset(d_out, 0, numElems * sizeof(int)));

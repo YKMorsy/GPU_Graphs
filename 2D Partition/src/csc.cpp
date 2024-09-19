@@ -22,111 +22,95 @@ csc::csc(const char* filename, int R, int C)
     }
     infile.close(); // Close the file after reading
 
-    num_R = R;
-    num_C = C;
+    num_pe_R = R;
+    num_pe_C = C;
     int num_proc = R * C;
-    std::vector<std::vector<std::pair<int,int>>> processor_adjList(num_proc);
-    std::vector<int> proc_number_rows(num_proc,0);
-    std::vector<std::vector<int>> degree_vect(num_proc);
-    csc_vect.resize(num_proc);
 
-    int base_cols_per_proc = num_nodes / C;
-    int extra_cols = num_nodes % C;
-    int base_rows_per_proc = num_nodes / R;
-    int extra_rows = num_nodes % R;
-    std::vector<int> col_start(C + 1, 0);
-    for (int i = 1; i <= C; ++i) 
+    // create adj list for each processor
+    std::vector<int> total_edges_arr(num_proc);
+    std::vector<std::vector<std::vector<int>>> processor_adjList(num_proc);
+    csc_vect.resize(num_pe_R*num_pe_C);
+
+    for (int p_i = 0; p_i < num_pe_R; p_i++)
     {
-        col_start[i] = col_start[i - 1] + base_cols_per_proc + (i <= extra_cols ? 1 : 0);
-    }
-
-    for (int global_col = 0; global_col < num_nodes; global_col++)
-    {
-        std::vector<int> cur_node = adjList[global_col];
-        
-        int c = std::upper_bound(col_start.begin(), col_start.end(), global_col) - col_start.begin() - 1;
-
-        for (int i = 0; i < cur_node.size(); i++)
+        for (int p_j = 0; p_j < num_pe_C; p_j++)
         {
-            int global_row = cur_node[i];
-            int r = global_row%R;
-            int proc_num = r*C+c;
+            int vertex_block = p_j*num_pe_R + p_i; // 0-0, 1-2, 2-1, 3-3
+            int nodes_per_col = num_nodes/num_pe_C; // 4
+            int start_col_node = (vertex_block/num_pe_C) * nodes_per_col;
+            int total_edges = 0;
 
-            // global_col -> global_row in proc r*C+c
-            processor_adjList[proc_num].push_back({global_col, global_row});
+            std::vector<std::vector<int>> cur_adj_list(nodes_per_col);
+
+            for (int node_col = 0; node_col < nodes_per_col; node_col++)
+            {                
+                std::vector<int> col_shared_edges = adjList[node_col+start_col_node];
+
+                int num_neighbors = 0;
+
+                for (int neighbor_index = 0; neighbor_index < col_shared_edges.size(); neighbor_index++)
+                {
+                    int neighbor = col_shared_edges[neighbor_index];
+
+                    int neighbor_i = (neighbor/(num_nodes/(num_pe_R*num_pe_C)))%num_pe_R;
+
+                    if (p_i == neighbor_i)
+                    {
+                        cur_adj_list[node_col].push_back(neighbor);
+                        num_neighbors++;
+                        total_edges++;
+                    }
+                }
+
+                if (num_neighbors == 0)
+                {
+                    cur_adj_list[node_col].push_back(-1);
+                }
+            }
+
+            processor_adjList[p_i*num_pe_C+p_j] = cur_adj_list;
+            total_edges_arr[p_i*num_pe_C+p_j] = total_edges;
+
         }
     }
-
-    for (int r = 0; r < R; r++)
+    
+    // create csc
+    for (int p_i = 0; p_i < num_pe_R; p_i++)
     {
-        for (int c = 0; c < C; c++)
+        for (int p_j = 0; p_j < num_pe_C; p_j++)
         {
-            int proc_num = r*C+c;
-            int proc_num_cols = col_start[c + 1] - col_start[c];
-            int proc_num_rows;
-            if (r < extra_rows)
-            {
-                proc_num_rows = (base_rows_per_proc + 1);
-            }
-            else
-            {
-                proc_num_rows = base_rows_per_proc;
-            }
+            int vertex_block = p_j*num_pe_R + p_i; // 0-0, 1-2, 2-1, 3-3
+            int nodes_per_col = num_nodes/num_pe_C; // 4
+            int start_col_node = (vertex_block/num_pe_C) * nodes_per_col;
+            int proc_num = p_i*num_pe_C+p_j;
 
-            std::vector<std::pair<int,int>> proc_edges = processor_adjList[proc_num];
             std::vector<int> col_offset;
             std::vector<int> row_index;
+            std::vector<std::vector<int>> cur_adj_list = processor_adjList[proc_num];
 
-            if (proc_edges.size() > 0)
+            if (total_edges_arr[proc_num] != 0)
             {
-                col_offset.resize(proc_num_cols+1,-1);
-                int count = 0;
-                int offset_count = 0;
+                int cur_count = 0;
 
-                for (int local_col = 0; local_col < proc_num_cols; local_col++)
+                for (int i = 0; i < cur_adj_list.size(); i++)
                 {
-                    int global_col = col_start[c] + local_col;
+                    col_offset.push_back(cur_count);
 
-
-                    col_offset[local_col] = offset_count;
-                    
-                    // find all source nodes in adj list that are equal to global_col and place in local_col
-                    for (int edge = 0; edge < proc_edges.size(); edge++)
+                    for (int j = 0; j < cur_adj_list[i].size(); j++)
                     {
-                        if (proc_edges[edge].first == global_col)
+                        if (cur_adj_list[i][j] != -1)
                         {
-                            row_index.push_back(proc_edges[edge].second);
-                            count++;
-                            offset_count++;
+                            row_index.push_back(cur_adj_list[i][j]);
+                            cur_count++;
                         }
-                    }
-
-                    if (count == 0)
-                    {
-                        col_offset[local_col] = -1;
-                    }
-
-
-                    count = 0;
+                    }     
                 }
-
-                col_offset[proc_num_cols] = offset_count;
-
-                // change -1's to next offset
-                for (int i = proc_num_cols; i >= 0; i--) 
-                {
-                    if (col_offset[i] == -1)
-                    {
-                        col_offset[i] = col_offset[i+1];
-                    }
-                }
+                col_offset.push_back(cur_count);
             }
 
             csc_vect[proc_num] = {col_offset, row_index};
-
         }
     }
-
 }
 
 csc::~csc()
@@ -138,7 +122,7 @@ void  csc::print_info(int r, int c)
     std::cout << "\n------CSS INFO------" << std::endl;
     std::cout << "------ " << r << "x" << c << " ------" << std::endl;
 
-    int proc_num = r*num_C + c;
+    int proc_num = r*num_pe_C + c;
 
     std::vector<int> col_offset = csc_vect[proc_num].first;
     std::vector<int> row_index = csc_vect[proc_num].second;
