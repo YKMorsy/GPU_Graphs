@@ -107,6 +107,13 @@ csc::csc(const char* filename, int R, int C)
                 }
                 col_offset.push_back(cur_count);
             }
+            else
+            {
+                for (int i = 0; i < (num_nodes/(num_pe_C)) + 1; i++)
+                {
+                    col_offset.push_back(0);
+                }
+            }
 
             csc_vect[proc_num] = {col_offset, row_index};
         }
