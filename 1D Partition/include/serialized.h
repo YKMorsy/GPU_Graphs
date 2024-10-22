@@ -6,7 +6,7 @@
 #include <iostream>
 #include <time.h>
 #include <limits>
-#include "../csr/csr.h"
+#include "csr.h"
 #include <cstring>
 
 class serialized {

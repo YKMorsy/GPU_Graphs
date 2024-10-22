@@ -1,4 +1,4 @@
-#include "syclBFS.h"
+#include "../include/syclBFS.h"
 
 const int HASH_RANGE = 128;
 const int WARP_SIZE = 32;

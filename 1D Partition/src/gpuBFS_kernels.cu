@@ -1,4 +1,4 @@
-#include "gpuBFS_kernels.cuh"
+#include "../include/gpuBFS_kernels.cuh"
 #include <stdio.h>
 
 
@@ -34,7 +34,7 @@ void linear_bfs(const int total_nodes, const int starting_col_idx_pre_pe, const 
 		// Only proceed if this node hasn't been visited yet (use atomicCAS to update distance)
 		if (atomicCAS(&distance[v], INF, iteration) == INF) 
 		{
-			atomicAdd(edges_traversed, 1);
+			// atomicAdd(edges_traversed, 1);
 
 			// Get neighbors range from offset
 			int r = row_offset[v] - starting_col_idx_pre_pe;

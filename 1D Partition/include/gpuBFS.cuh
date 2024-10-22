@@ -4,7 +4,7 @@
 #include <nvshmem.h>
 #include <nvshmemx.h>
 #include "gpuBFS_kernels.cuh"
-#include "../csr/csr.h"
+#include "csr.h"
 
 class gpuBFS
 {

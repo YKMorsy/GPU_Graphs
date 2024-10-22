@@ -10,14 +10,17 @@ csc::csc(const char* filename, int R, int C)
         std::cerr << "Error: Unable to open file " << filename << "\n";
         return;
     }
-    
+
     infile >> num_nodes;
     infile >> num_edges;
 
+    // Initialize adjacency list
+    std::vector<std::vector<int>> adjList(num_nodes);
+    
     int from, to;
-    std::vector<std::vector<int>> adjList(num_nodes+1);
     while (infile >> from >> to)
     {
+        // Store edge in adjacency list (1-based to 0-based index conversion)
         adjList[from-1].push_back(to-1);
     }
     infile.close(); // Close the file after reading
@@ -26,100 +29,69 @@ csc::csc(const char* filename, int R, int C)
     num_pe_C = C;
     int num_proc = R * C;
 
-    // create adj list for each processor
-    std::vector<int> total_edges_arr(num_proc);
-    std::vector<std::vector<std::vector<int>>> processor_adjList(num_proc);
-    csc_vect.resize(num_pe_R*num_pe_C);
+    int block_size_rows = num_nodes / (num_pe_R * num_pe_C);
+    int block_size_cols = num_nodes / num_pe_C;
 
-    for (int p_i = 0; p_i < num_pe_R; p_i++)
+    csc_vect.resize(num_pe_R * num_pe_C);
+
+    for (int proc = 0; proc < num_proc; proc++)
     {
-        for (int p_j = 0; p_j < num_pe_C; p_j++)
+        std::vector<std::vector<int>> curAdjList(num_nodes / num_pe_C);
+
+        int p_i = proc / num_pe_C;
+        int p_j = proc % num_pe_C;
+        int start_col = (num_nodes / num_pe_C) * p_j;
+
+        // Pij owns edges in blocks (mR + i, j)
+        for (int m = 0; m < C; m++)
         {
-            int vertex_block = p_j*num_pe_R + p_i; // 0-0, 1-2, 2-1, 3-3
-            int nodes_per_col = num_nodes/num_pe_C; // 4
-            int start_col_node = (vertex_block/num_pe_C) * nodes_per_col;
-            int total_edges = 0;
+            int startRow = (m * R + p_i) * block_size_rows;
+            int startCol = p_j * block_size_cols;
 
-            std::vector<std::vector<int>> cur_adj_list(nodes_per_col);
-
-            for (int node_col = 0; node_col < nodes_per_col; node_col++)
-            {                
-                std::vector<int> col_shared_edges = adjList[node_col+start_col_node];
-
-                int num_neighbors = 0;
-
-                for (int neighbor_index = 0; neighbor_index < col_shared_edges.size(); neighbor_index++)
+            // Process only relevant edges from adjacency list
+            for (int col = startCol; col < startCol + block_size_cols; ++col)
+            {
+                for (int row : adjList[col])
                 {
-                    int neighbor = col_shared_edges[neighbor_index];
-
-                    int neighbor_i = (neighbor/(num_nodes/(num_pe_R*num_pe_C)))%num_pe_R;
-
-                    if (p_i == neighbor_i)
+                    if (row >= startRow && row < startRow + block_size_rows)
                     {
-                        cur_adj_list[node_col].push_back(neighbor);
-                        num_neighbors++;
-                        total_edges++;
+                        curAdjList[col - start_col].push_back(row);
                     }
                 }
-
-                if (num_neighbors == 0)
-                {
-                    cur_adj_list[node_col].push_back(-1);
-                }
             }
-
-            processor_adjList[p_i*num_pe_C+p_j] = cur_adj_list;
-            total_edges_arr[p_i*num_pe_C+p_j] = total_edges;
-
         }
-    }
-    
-    // create csc
-    for (int p_i = 0; p_i < num_pe_R; p_i++)
-    {
-        for (int p_j = 0; p_j < num_pe_C; p_j++)
+
+        // Convert adjacency list to CSC format
+        std::vector<int> col_offset(num_nodes / num_pe_C + 1, 0);
+        for (int col = 0; col < num_nodes / num_pe_C; ++col)
         {
-            int vertex_block = p_j*num_pe_R + p_i; // 0-0, 1-2, 2-1, 3-3
-            int nodes_per_col = num_nodes/num_pe_C; // 4
-            int start_col_node = (vertex_block/num_pe_C) * nodes_per_col;
-            int proc_num = p_i*num_pe_C+p_j;
-
-            std::vector<int> col_offset;
-            std::vector<int> row_index;
-            std::vector<std::vector<int>> cur_adj_list = processor_adjList[proc_num];
-
-            if (total_edges_arr[proc_num] != 0)
-            {
-                int cur_count = 0;
-
-                for (int i = 0; i < cur_adj_list.size(); i++)
-                {
-                    col_offset.push_back(cur_count);
-
-                    for (int j = 0; j < cur_adj_list[i].size(); j++)
-                    {
-                        if (cur_adj_list[i][j] != -1)
-                        {
-                            row_index.push_back(cur_adj_list[i][j]);
-                            cur_count++;
-                        }
-                    }     
-                }
-                col_offset.push_back(cur_count);
-            }
-            else
-            {
-                for (int i = 0; i < (num_nodes/(num_pe_C)) + 1; i++)
-                {
-                    col_offset.push_back(0);
-                }
-            }
-
-            csc_vect[proc_num] = {col_offset, row_index};
+            col_offset[col + 1] = curAdjList[col].size();
         }
+
+        // Compute prefix sum to determine starting indices for each column
+        for (int col = 1; col <= num_nodes / num_pe_C; ++col)
+        {
+            col_offset[col] += col_offset[col - 1];
+        }
+
+        int total_edges = col_offset[num_nodes / num_pe_C];
+
+        std::vector<int> row_index(total_edges);
+
+        // Fill the row_index vector with the row indices (neighbors)
+        for (int col = 0; col < num_nodes / num_pe_C; ++col)
+        {
+            int start = col_offset[col];
+            for (int i = 0; i < curAdjList[col].size(); ++i)
+            {
+                row_index[start + i] = curAdjList[col][i];
+            }
+        }
+
+        // Store the CSC representation for the processor
+        csc_vect[proc] = {col_offset, row_index};
     }
 }
-
 csc::~csc()
 {
 }

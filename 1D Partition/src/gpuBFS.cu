@@ -1,4 +1,4 @@
-#include "gpuBFS.cuh"
+#include "../include/gpuBFS.cuh"
 
 // CUDA error checking macro
 #define CUDA_CHECK(call) { \

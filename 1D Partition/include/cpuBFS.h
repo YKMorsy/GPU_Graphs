@@ -5,7 +5,7 @@
 #include <iostream>
 #include <time.h>
 #include <stdlib.h> // for malloc and free
-#include "../csr/csr.h"
+#include "csr.h"
 #include <limits>
 
 #define INF std::numeric_limits<int>::max()

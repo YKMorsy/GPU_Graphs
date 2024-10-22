@@ -1,4 +1,4 @@
-#include "serialized.h"
+#include "../include/serialized.h"
 
 serialized::serialized(csr &graph, int source) : iteration(0) {
 

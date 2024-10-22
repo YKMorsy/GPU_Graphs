@@ -1,4 +1,4 @@
-#include "prefixSum.cuh"
+#include "../include/prefixSum.cuh"
 
 #define MAX_BLOCK_SZ 1024
 #define NUM_BANKS 32

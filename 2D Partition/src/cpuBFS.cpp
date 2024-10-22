@@ -56,6 +56,7 @@ cpuBFS::cpuBFS(csc &graph, int source)
                 pred[v] = u;
                 distance[v] = iteration;
                 frontier.push_back(v);
+                total_edges_traversed++;
             }
         }
 

@@ -1,4 +1,4 @@
-#include "csr.h"
+#include "../include/csr.h"
 
 csr::csr(const char* filename)
 {
@@ -25,7 +25,7 @@ csr::csr(const char* filename)
     std::vector<std::vector<int>> adjList(num_nodes+1);
     while (infile >> from >> to)
     {
-        adjList[from-1].push_back(to-1);
+        adjList[from].push_back(to);
     }
 
     // convert adjacency list to compressed sparse row format

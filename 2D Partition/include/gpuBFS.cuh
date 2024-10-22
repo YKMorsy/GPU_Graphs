@@ -17,9 +17,13 @@ class gpuBFS
         ~gpuBFS();
 
         void print_distance(csc &graph);
+        void get_device_distance(csc &graph);
+        void check_distance(std::vector<int>& correct_distance);
+        void print_stats(int total_edges_traversed);
 
         int *host_distance;
         float exec_time;
+        int te;
 
     private:
 
@@ -54,6 +58,8 @@ class gpuBFS
         int *d_global_frontier_count;
         int *d_all_frontier_count;
         int *d_all_frontier;
+
+        int *d_te;
 };
 
 

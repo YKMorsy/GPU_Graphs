@@ -11,23 +11,32 @@
 }
 
 __global__
-void update_frontier(int* d_frontier, const int* d_dest_verts, int* d_frontier_count, const int* d_dest_verts_count, int* d_bmap, const int start_node, const int iteration, int* d_distance)
+void update_frontier(int* d_frontier, const int* d_dest_verts, int* d_frontier_count, const int* d_dest_verts_count, int* d_bmap, const int start_node, const int iteration, int* d_distance, int* d_te)
 {
 	int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (global_tid < *d_dest_verts_count)
     {
         // check if node is visisted and update frontier, distance, bmap, and pred if not visited
-        // if (d_bmap[d_dest_verts[global_tid]] == 1) return;
-        // printf("%d dest vertex %d\n", nvshmem_my_pe(), d_dest_verts[global_tid]);
-        // printf("pe: %d d_distance_idx: %d\n", nvshmem_my_pe(), d_dest_verts[global_tid]-start_node);
+
+        // if (d_dest_verts[global_tid] == 2)
+        // {
+        //     printf("%d foreign node %d\n", nvshmem_my_pe(), d_dest_verts[global_tid]);
+        // }
 
         if (d_distance[d_dest_verts[global_tid]-start_node] == -1)
         {
             d_distance[d_dest_verts[global_tid]-start_node] = iteration;
+            // atomicAdd(d_te, 1);
         } 
         d_bmap[d_dest_verts[global_tid]] = 1;
         d_frontier[global_tid] = d_dest_verts[global_tid];
+
+        // if (d_dest_verts[global_tid] == 2)
+        // {
+        //     printf("%d foreign node %d\n", nvshmem_my_pe(), d_frontier[global_tid]);
+        // }
+
         atomicAdd(d_frontier_count, 1);
     }
 }
@@ -62,7 +71,7 @@ void print_d_dest_verts_count(int* d_dest_verts_count)
 __global__
 void expand_frontier(const int* d_frontier, const int frontier_count, const int iteration, const int* d_cumulative_degrees, const int* d_col_offset, 
                      const int* d_row_index, int* d_bmap, int* d_distance, int* d_pred, const int total_degrees, int* d_dest_verts, int* d_dest_verts_count, int* d_frontier_count,
-                     const int* d_start_col_node, const int total_nodes, const int pe_rows, const int pe_cols, const int mype, const int start_node)
+                     const int* d_start_col_node, const int total_nodes, const int pe_rows, const int pe_cols, const int mype, const int start_node, int* d_te)
 {
 	int global_tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -74,10 +83,17 @@ void expand_frontier(const int* d_frontier, const int frontier_count, const int 
         // get frontier node u using k
         int u = d_frontier[k] - *d_start_col_node;
 
+        // printf("%d d_row_index_index %d\n", nvshmem_my_pe(), d_col_offset[u] + global_tid - d_cumulative_degrees[k]);
+
         // get neighbor v using row[col[u] + tid - cumul[k]]
         int v = d_row_index[d_col_offset[u] + global_tid - d_cumulative_degrees[k]];
 
-        // printf("pe: %d thd: %d neighbor: %d\n", mype, global_tid, v);
+        // printf("%d HELLO %d %d\n", nvshmem_my_pe(), u, v);
+
+        // if (d_frontier[k] == 513)
+        // {
+        //     printf("%d HELLO %d %d\n", nvshmem_my_pe(), u, v);
+        // }
 
         if (d_bmap[v] == 1) return; // bmap holds all nodes no matter the pe
 
@@ -86,60 +102,42 @@ void expand_frontier(const int* d_frontier, const int frontier_count, const int 
         // check which pe owns v and put in correct pe
         int p_i = mype / pe_cols;
         int p_j = mype % pe_cols;
-        int pe_block = p_j*pe_rows + p_i;
+        // int pe_block = p_j*pe_rows + p_i;
 
         int target_j = v/(total_nodes/(pe_cols));
 
-        // int num_blocks = pe_cols*pe_rows;
-        // int nodes_per_block = total_nodes/num_blocks;
-        // int neighbor_block = v/nodes_per_block;
-        
-
         if (p_j == target_j)
         {
+            // if (d_frontier[k] == 513)
+            // {
+            //     printf("%d HELLO %d %d\n", nvshmem_my_pe(), u, v);
+            // }
             // get local value of v
-
-            // printf("pe: %d target pe: %d neighbor: %d\n", mype, mype, v);
-            // printf("pe: %d d_distance_idx: %d\n", mype, v-start_node);
-
             d_distance[v-start_node] = iteration;
-
-            // printf("pe: %d neighbor: %d d_distance: %d\n", mype, v, d_distance[v-start_node]);
-
             uint32_t off = atomicAdd(d_dest_verts_count, 1);
-            // int off = nvshmem_int_atomic_fetch_add(d_dest_verts_count, 1, mype);
-            // nvshmem_quiet();
             d_dest_verts[off] = v;
-
-            // printf("pe: %d target pe: %d off: %d\n", mype, mype, off);
         }
         else
         {
-            
-
-            // get local value of v
-            // int target_pe = target_j*pe_rows + p_i;
             int target_pe = p_i*pe_cols + target_j;
-            // nvshmem_int_put_nbi(d_distance + v, &iteration, 1, target_pe);
-
-            // printf("pe: %d target pe: %d neighbor: %d\n", mype, target_pe, v);
-
-            // int off = nvshmem_int_g(d_dest_verts_count, target_pe);
-            // nvshmem_int_atomic_add(d_dest_verts_count, 1, target_pe);
-            // nvshmem_quiet();
+            // printf("%d foreign node %d %d\n", nvshmem_my_pe(), target_pe, v);
             int off = nvshmem_int_atomic_fetch_add(d_dest_verts_count, 1, target_pe);
-            // nvshmem_quiet();
-
             nvshmem_int_put(d_dest_verts + off, &v, 1, target_pe);
-            // nvshmem_quiet();
 
-            // printf("pe: %d target pe: %d off: %d\n", mype, target_pe, off);
-            // printf("pe: %d target pe: %d d_dest_verts_count: %d\n", mype, target_pe, nvshmem_int_g(d_dest_verts_count, target_pe));
-            // printf("pe: %d target pe: %d neighbor added: %d\n", mype, target_pe, nvshmem_int_g(&d_dest_verts[off], target_pe));
-
-            // nvshmem_quiet();
-            // nvshmem_barrier_all();
+            // if (d_distance[d_dest_verts[global_tid]-start_node] == -1)
+            // {
+            //     d_distance[d_dest_verts[global_tid]-start_node] = iteration;
+            // } 
+            // d_bmap[d_dest_verts[global_tid]] = 1;
+            // d_frontier[global_tid] = d_dest_verts[global_tid];
         }
+
+
+
+        // if (d_frontier[k] == 513)
+        // {
+        //     printf("%d HELLO %d %d\n", nvshmem_my_pe(), u, v);
+        // }
     }
 }
 
@@ -154,6 +152,12 @@ void cumulative_degree(const int all_frontier_count, const int* d_col_offset, co
         // convert cur_node to correct local node
         int cur_node = d_all_frontier[global_tid] - *d_start_col_node;
         int num_edges = d_col_offset[cur_node + 1] - d_col_offset[cur_node];
+
+        // if (d_all_frontier[global_tid] == 513)
+        // {
+        //     printf("%d cur_node %d\n", nvshmem_my_pe(), cur_node);
+        //     printf("%d num_edges %d\n", nvshmem_my_pe(), num_edges);
+        // }
 
         // printf("%d cur_node %d\n", nvshmem_my_pe(), cur_node);
         // printf("%d num_edges %d\n", nvshmem_my_pe(), num_edges);
@@ -193,14 +197,6 @@ gpuBFS::gpuBFS(csc &graph, int source, int R, int C)
 
     total_nodes = graph.num_nodes;
 
-    // std::cout << "total nodes " << total_nodes << std::endl;
-    // pe_nodes = graph.csc_vect[mype].first.size()-1;
-
-    // if (pe_nodes < 0)
-    // {
-    //     pe_nodes = 0;
-    // }
-
     pe_rows = R;
     pe_cols = C;
 
@@ -230,62 +226,49 @@ gpuBFS::gpuBFS(csc &graph, int source, int R, int C)
     int p_j = mype % pe_cols;
     int vertex_block = p_j*pe_rows + p_i;
     start_node = vertex_block*(total_nodes/(pe_rows*pe_cols));
+    // start_node = (total_nodes/pe_cols) * (mype % pe_cols);
     // std::cout << mype << " start node " << start_node << std::endl;
 
     while (true)
     {
         nvshmem_barrier_all();
-        // std::cout << "iteration " << iteration << std::endl;
-        // CUDA_CHECK(cudaMemset(d_frontier_count, 0, sizeof(int)));
         dest_vert_count = 0;
         CUDA_CHECK(cudaMemset(d_total_degrees, 0, sizeof(int)));
         CUDA_CHECK(cudaMemset(d_all_frontier_count, 0, sizeof(int)));
         CUDA_CHECK(cudaMemset(d_dest_verts_count, 0, sizeof(int)));
-
-        // cudaDeviceSynchronize();
         nvshmem_barrier_all();
         
-
         /* expand */
-
-        // std::cout << mype << "HI1" << std::endl;
 
         // communicate frontier (share frontier with processors in the same processor column (processors Pij with the same j))
         // in: d_frontier, d_frontier_count, pe_cols
         // out: d_all_frontier, d_all_frontier_count
         // nvshmem_barrier_all();
         comm_frontier<<< 1, 1 >>>(d_frontier_count, d_frontier, d_all_frontier_count, d_all_frontier, pe_rows, pe_cols, mype);
-        // cudaDeviceSynchronize();
         nvshmem_barrier_all();
 
-        // std::cout << mype << "HI2" << std::endl;
-
         cudaMemcpy(&all_frontier_count, d_all_frontier_count, sizeof(int), cudaMemcpyDeviceToHost);
-
-        // std::cout << mype << " all_frontier_count " << all_frontier_count << std::endl;
+        nvshmem_barrier_all();
 
         // calculate degrees then expand frontier
         // get number of neighbors for each node in the all frontier and the total number of neighbor nodes a frontier will check
         // in: d_all_frontier_count, d_all_frontier, d_col_offset, d_row_index, d_start_col_node (to adjust frontier node to correct index in d_col_offset)
         // out: d_degrees, d_total_degrees
-        nvshmem_barrier_all();
+        
         cumulative_degree<<< (all_frontier_count + 1024 - 1) / 1024, 1024 >>>(all_frontier_count, d_col_offset, d_row_index, d_all_frontier, d_degrees, d_total_degrees, d_start_col_node);
-        // cudaDeviceSynchronize();
+        nvshmem_barrier_all();
 
         // get prefix sum of d_degrees for
         // in: d_degrees, d_all_frontier_count
         // out: d_cumulative_degrees
-        nvshmem_barrier_all();
         ps.sum_scan_blelloch(d_cumulative_degrees, d_degrees, all_frontier_count);
-        // cudaDeviceSynchronize();
-        // nvshmem_barrier_all();
-        // cudaDeviceSynchronize();
 
         // copy total_degrees from device to host to specify kernel size for expansion
         cudaMemcpy(&total_degrees, d_total_degrees, sizeof(int), cudaMemcpyDeviceToHost);
         nvshmem_barrier_all();
 
-        // std::cout << mype << "HI3" << std::endl;
+        // std::cout << "HI\n";
+
 
         /*
         - performs binary search on d_cumulative_degrees to find index of frontier array that a thread is responsible for (index k)
@@ -296,73 +279,44 @@ gpuBFS::gpuBFS(csc &graph, int source, int R, int C)
         - in:
         - out: d_dest_verts
         */
-
         // std::cout << mype << " total degrees " << total_degrees << std::endl;
         // nvshmem_barrier_all();
         // CUDA_CHECK(cudaMemset(d_dest_verts_count, 0, sizeof(int)));
         nvshmem_barrier_all();
-        int kernel_threads = total_degrees;
-        if (total_degrees == 0) kernel_threads = 100;
+        int kernel_threads = (total_degrees == 0) ? 100 : total_degrees;
         expand_frontier<<< (kernel_threads + 1024 - 1) / 1024, 1024 >>>(d_all_frontier, all_frontier_count, iteration, d_cumulative_degrees, d_col_offset, d_row_index, d_bmap, d_distance, 
                                                                         d_pred, total_degrees, d_dest_verts, d_dest_verts_count, d_frontier_count, d_start_col_node, total_nodes, pe_rows, 
-                                                                        pe_cols, mype, start_node);
-        // cudaDeviceSynchronize();
-        // nvshmem_barrier_all();
-        // print_d_dest_verts_count<<< 1, 1 >>> (d_dest_verts_count);
-        // cudaDeviceSynchronize();
-        // nvshmem_barrier_all();
-        // cudaError_t err = cudaGetLastError();
-        // if (err != cudaSuccess) {
-        //     printf("Kernel launch error: %s\n", cudaGetErrorString(err));
-        // }
-
-        // cudaDeviceSynchronize();
-        // nvshmem_quiet();
+                                                                        pe_cols, mype, start_node, d_te);
+        cudaDeviceSynchronize();
         nvshmem_barrier_all();
         
-        // copy d_dest_verts_count for kernel setup
-        // cudaDeviceSynchronize();
         CUDA_CHECK(cudaMemcpy(&dest_vert_count, d_dest_verts_count, sizeof(int), cudaMemcpyDeviceToHost));
-        // cudaDeviceSynchronize();
         nvshmem_barrier_all();
-        // std::cout << mype << " dest_vert_count " << dest_vert_count << std::endl;
 
         CUDA_CHECK(cudaMemset(d_frontier_count, 0, sizeof(int)));
-        // cudaDeviceSynchronize();
 
         /* fold */
         // update local frontier
         // in: d_dest_verts, d_dest_verts_count
         // out: d_frontier, d_frontier_count
         nvshmem_barrier_all();
-        update_frontier<<< (dest_vert_count + 1024 - 1) / 1024, 1024 >>>(d_frontier, d_dest_verts, d_frontier_count, d_dest_verts_count, d_bmap, start_node, iteration, d_distance);
+        update_frontier<<< (dest_vert_count + 1024 - 1) / 1024, 1024 >>>(d_frontier, d_dest_verts, d_frontier_count, d_dest_verts_count, d_bmap, start_node, iteration, d_distance, d_te);
         // cudaDeviceSynchronize();
         nvshmem_barrier_all();
 
         int frontier_count;
         cudaMemcpy(&frontier_count, d_frontier_count, sizeof(int), cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
+        // cudaDeviceSynchronize();
         nvshmem_barrier_all();
-        // std::cout << mype << " frontier_count " << frontier_count << std::endl;
 
         // copy frontier count to host to check whether to continue for all processor frontier count
         nvshmem_int_sum_reduce(NVSHMEM_TEAM_WORLD, d_global_frontier_count, d_frontier_count, 1);
-        // cudaDeviceSynchronize();
-        // nvshmem_barrier_all();
         cudaMemcpy(&global_frontier_count, d_global_frontier_count, sizeof(int), cudaMemcpyDeviceToHost);
-        // cudaDeviceSynchronize();
         nvshmem_barrier_all();
         
         if (global_frontier_count == 0) break;
 
-        // CUDA_CHECK(cudaDeviceSynchronize());
         iteration++;
-
-        // nvshmem_barrier_all();
-
-        // std::cout << std::endl;
-
-        // break;
     }
 
     /* CUDA EVENTS FOR TIMING */
@@ -370,12 +324,53 @@ gpuBFS::gpuBFS(csc &graph, int source, int R, int C)
     CUDA_CHECK(cudaEventSynchronize(gpu_end));
     CUDA_CHECK(cudaEventElapsedTime(&exec_time, gpu_start, gpu_end));
 
+    
+    float* d_exec_time = (float *)nvshmem_malloc(sizeof(float));
+    float* d_global_exec_time = (float *)nvshmem_malloc(sizeof(float));
+    cudaMemcpy(d_exec_time, &exec_time, sizeof(float), cudaMemcpyHostToDevice);
     nvshmem_barrier_all();
+    nvshmem_float_max_reduce(NVSHMEM_TEAM_WORLD, d_global_exec_time, d_exec_time, 1);
+    nvshmem_barrier_all();
+    cudaMemcpy(&exec_time, d_global_exec_time, sizeof(float), cudaMemcpyDeviceToHost);
+    nvshmem_free(d_exec_time);
+    nvshmem_free(d_global_exec_time);
 
-    // transfer distance to host
-    CUDA_CHECK(cudaMemcpy(host_distance, d_distance, pe_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+    nvshmem_barrier_all();
+    gpuBFS::get_device_distance(graph);
+    nvshmem_barrier_all();
+    
 
+    CUDA_CHECK(cudaMemcpy(&te, d_te, sizeof(int), cudaMemcpyDeviceToHost));
 
+}
+
+void gpuBFS::get_device_distance(csc &graph) 
+{
+    if (nvshmem_my_pe() == 0) 
+    {
+        CUDA_CHECK(cudaMemcpy(host_distance, d_distance, pe_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+
+        for (int target_pe = 1; target_pe < nvshmem_n_pes(); target_pe++) 
+        {
+            int *temp_array = (int *)nvshmem_malloc(pe_nodes * sizeof(int));
+
+            nvshmem_int_get(temp_array, d_distance, pe_nodes, target_pe);
+
+            int p_i = target_pe / pe_cols;
+            int p_j = target_pe % pe_cols;
+            int p_block = p_j * pe_rows + p_i;
+            int offset = p_block * pe_nodes;
+
+            // std::cout << offset << std::endl;
+
+            CUDA_CHECK(cudaMemcpy(host_distance + offset, temp_array, pe_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+            nvshmem_free(temp_array);
+        }
+    }
+    else
+    {
+        CUDA_CHECK(cudaMemcpy(host_distance, d_distance, pe_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+    }
 }
 
 void gpuBFS::init_source(int mype, int source)
@@ -421,43 +416,54 @@ void gpuBFS::init_device(csc &graph, int mype)
     // get csc arrays
     std::vector<int> col_offset = graph.csc_vect[mype].first;
     std::vector<int> row_index = graph.csc_vect[mype].second;
-
-    host_distance = (int *)malloc(pe_nodes * sizeof(int));
+    
+    if (nvshmem_my_pe() == 0)
+    {
+        host_distance = (int *)malloc(total_nodes * sizeof(int));
+    }
+    else
+    {
+        host_distance = (int *)malloc(pe_nodes * sizeof(int));
+    }
+    
 
     // initialize device memory
     d_dest_verts_count = (int *)nvshmem_malloc(sizeof(int));
-    d_dest_verts = (int *)nvshmem_malloc(total_nodes * sizeof(int));
+    d_dest_verts = (int *)nvshmem_malloc(10 * total_nodes * sizeof(int));
 
-    d_frontier = (int *)nvshmem_malloc(total_nodes * sizeof(int));
+    d_frontier = (int *)nvshmem_malloc(10 * total_nodes * sizeof(int));
     d_bmap = (int *)nvshmem_malloc(total_nodes * sizeof(int));
     d_distance = (int *)nvshmem_malloc(pe_nodes * sizeof(int));
-    d_degrees = (int *)nvshmem_malloc(total_nodes * sizeof(int));
+    d_degrees = (int *)nvshmem_malloc(10 * total_nodes * sizeof(int));
     d_total_degrees = (int *)nvshmem_malloc(sizeof(int));
-    d_cumulative_degrees = (int *)nvshmem_malloc(total_nodes * sizeof(int));
+    d_cumulative_degrees = (int *)nvshmem_malloc(10 * total_nodes * sizeof(int));
     d_frontier_count = (int *)nvshmem_malloc(sizeof(int));
     d_start_col_node = (int *) nvshmem_malloc(sizeof(int));
     d_global_frontier_count = (int *)nvshmem_malloc(sizeof(int));
     d_all_frontier_count = (int *)nvshmem_malloc(sizeof(int));
-    d_all_frontier = (int *)nvshmem_malloc(total_nodes * sizeof(int));
+    d_all_frontier = (int *)nvshmem_malloc(10 * total_nodes * sizeof(int));
 
     // d_col_offset = (int *)nvshmem_malloc(total_nodes * sizeof(int));
     // d_row_index = (int *)nvshmem_malloc(total_nodes * sizeof(int));
     d_col_offset = (int *)nvshmem_malloc(col_offset.size() * sizeof(int));
     d_row_index = (int *)nvshmem_malloc(row_index.size() * sizeof(int));
 
+    d_te = (int *)nvshmem_malloc(sizeof(int));
+
 
     CUDA_CHECK(cudaMemcpy(d_col_offset, col_offset.data(), col_offset.size() * sizeof(int), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_row_index, row_index.data(), row_index.size() * sizeof(int), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemset(d_frontier, 0, total_nodes * sizeof(int)));
+    CUDA_CHECK(cudaMemset(d_frontier, 0, 10 * total_nodes * sizeof(int)));
     CUDA_CHECK(cudaMemset(d_bmap, 0, total_nodes * sizeof(int)));
     CUDA_CHECK(cudaMemset(d_distance, -1, pe_nodes * sizeof(int)));
     CUDA_CHECK(cudaMemset(d_dest_verts_count, 0, sizeof(int)));
+    CUDA_CHECK(cudaMemset(d_te, 0, sizeof(int)));
 
     int p_i = mype / pe_cols;
     int p_j = mype % pe_cols;
-    int vertex_block = p_j*pe_rows + p_i;
-    int nodes_per_col = total_nodes/pe_cols;
-    int start_col_node = (vertex_block/pe_cols) * nodes_per_col;
+    // int vertex_block = p_j*pe_rows + p_i;
+    // int nodes_per_col = total_nodes/pe_cols;
+    int start_col_node = (total_nodes/pe_cols) * p_j;
 
     // std::cout << mype << " start_col_node " << start_col_node << std::endl;
 
@@ -468,15 +474,46 @@ void gpuBFS::init_device(csc &graph, int mype)
 
 void gpuBFS::print_distance(csc &graph)
 {
-    std::cout << "\n------GPU DISTANCE VECTOR------" << std::endl;
-
-    std::cout << nvshmem_my_pe() << std::endl;
-
-    for (int i = 0; i < pe_nodes; i++) 
+    if (nvshmem_my_pe() == 0) 
     {
-        std::cout << host_distance[i] << " | ";
+        std::cout << "\n------GPU DISTANCE VECTOR------" << std::endl;
+
+        std::cout << nvshmem_my_pe() << std::endl;
+
+        for (int i = 0; i < total_nodes; i++) 
+        {
+            std::cout << host_distance[i] << " | ";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
+}
+
+void gpuBFS::check_distance(std::vector<int>& correct_distance)
+{
+    if (nvshmem_my_pe() == 0)
+    {
+        int num_mismatch = 0;
+
+        for (int i = 0; i < total_nodes; i++) 
+        {
+
+            if (host_distance[i] != correct_distance[i])
+            {
+                num_mismatch++;
+            }
+            
+        }
+        std::cout << "Number of mismatches: " << num_mismatch << std::endl;
+    }
+}
+
+void gpuBFS::print_stats(int total_edges_traversed)
+{
+    if (nvshmem_my_pe() == 0)
+    {
+        std::cout << exec_time << " ms" << std::endl;
+        std::cout << total_edges_traversed/(exec_time/1000) << " TEPS" << std::endl;
+    }
 }
 
 gpuBFS::~gpuBFS() 
